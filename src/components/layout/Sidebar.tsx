@@ -4,16 +4,19 @@ import { useState } from "react";
 import { ChevronLeft, ChevronRight, Calendar, Phone, Users, Clock, Settings, Video } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { Link, useLocation } from "react-router-dom";
 
 const SidebarLink = ({ 
   icon: Icon, 
   label, 
+  to,
   active = false,
   collapsed = false,
   onClick 
 }: { 
   icon: React.ComponentType<any>; 
-  label: string; 
+  label: string;
+  to: string;
   active?: boolean;
   collapsed?: boolean;
   onClick?: () => void;
@@ -27,25 +30,28 @@ const SidebarLink = ({
         active ? "bg-sidebar-accent text-sidebar-accent-foreground" : "text-sidebar-foreground hover:bg-sidebar-accent/50",
         collapsed ? "py-3" : "py-2"
       )}
+      asChild
     >
-      <Icon className={cn("h-5 w-5", collapsed && "mx-auto")} />
-      {!collapsed && <span>{label}</span>}
+      <Link to={to}>
+        <Icon className={cn("h-5 w-5", collapsed && "mx-auto")} />
+        {!collapsed && <span>{label}</span>}
+      </Link>
     </Button>
   );
 };
 
 const Sidebar = () => {
   const [collapsed, setCollapsed] = useState(false);
-  const [activeItem, setActiveItem] = useState("Dashboard");
   const isMobile = useIsMobile();
+  const location = useLocation();
   
   const menuItems = [
-    { icon: Video, label: "Dashboard" },
-    { icon: Phone, label: "Calls" },
-    { icon: Users, label: "Contacts" },
-    { icon: Calendar, label: "Schedule" },
-    { icon: Clock, label: "History" },
-    { icon: Settings, label: "Settings" },
+    { icon: Video, label: "Dashboard", path: "/" },
+    { icon: Phone, label: "Calls", path: "/calls" },
+    { icon: Users, label: "Contacts", path: "/contacts" },
+    { icon: Calendar, label: "Schedule", path: "/schedule" },
+    { icon: Clock, label: "History", path: "/history" },
+    { icon: Settings, label: "Settings", path: "/profile" },
   ];
 
   // Auto-collapse sidebar on mobile
@@ -86,9 +92,13 @@ const Sidebar = () => {
               key={item.label}
               icon={item.icon}
               label={item.label}
-              active={activeItem === item.label}
+              to={item.path}
+              active={
+                item.path === "/"
+                  ? location.pathname === "/"
+                  : location.pathname.startsWith(item.path)
+              }
               collapsed={collapsed}
-              onClick={() => setActiveItem(item.label)}
             />
           ))}
         </nav>
