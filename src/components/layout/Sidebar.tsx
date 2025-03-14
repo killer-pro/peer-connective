@@ -1,7 +1,7 @@
 
 import { cn } from "@/lib/utils";
 import { useState } from "react";
-import { ChevronLeft, ChevronRight, Calendar, Phone, Users, Clock, Settings, Video } from "lucide-react";
+import { ChevronLeft, ChevronRight, Calendar, Phone, Users, Clock, Settings, Video, UserPlus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { Link, useLocation } from "react-router-dom";
@@ -46,12 +46,13 @@ const Sidebar = () => {
   const location = useLocation();
   
   const menuItems = [
-    { icon: Video, label: "Dashboard", path: "/" },
-    { icon: Phone, label: "Calls", path: "/calls" },
+    { icon: Video, label: "Tableau de bord", path: "/" },
+    { icon: Phone, label: "Appels", path: "/calls" },
+    { icon: UserPlus, label: "Appel de groupe", path: "/group-call" },
     { icon: Users, label: "Contacts", path: "/contacts" },
-    { icon: Calendar, label: "Schedule", path: "/schedule" },
-    { icon: Clock, label: "History", path: "/history" },
-    { icon: Settings, label: "Settings", path: "/profile" },
+    { icon: Calendar, label: "Calendrier", path: "/schedule" },
+    { icon: Clock, label: "Historique", path: "/history" },
+    { icon: Settings, label: "Paramètres", path: "/profile" },
   ];
 
   // Auto-collapse sidebar on mobile
@@ -112,10 +113,10 @@ const Sidebar = () => {
           {!collapsed && (
             <div className="flex-1 min-w-0">
               <p className="text-sm font-medium text-sidebar-foreground truncate">
-                User Name
+                Nom d'utilisateur
               </p>
               <p className="text-xs text-sidebar-foreground/70 truncate">
-                user@example.com
+                utilisateur@exemple.com
               </p>
             </div>
           )}

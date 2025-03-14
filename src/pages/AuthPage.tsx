@@ -13,11 +13,11 @@ const AuthPage = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   
-  // Login form state
+  // États du formulaire de connexion
   const [loginEmail, setLoginEmail] = useState("");
   const [loginPassword, setLoginPassword] = useState("");
   
-  // Register form state
+  // États du formulaire d'inscription
   const [registerName, setRegisterName] = useState("");
   const [registerEmail, setRegisterEmail] = useState("");
   const [registerPassword, setRegisterPassword] = useState("");
@@ -26,37 +26,37 @@ const AuthPage = () => {
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
     
-    // In a real application, this would send credentials to an API
-    // For now, we'll just simulate a successful login
+    // Dans une application réelle, ceci enverrait les identifiants à une API
+    // Pour l'instant, nous simulerons une connexion réussie
     toast({
-      title: "Logged in successfully",
-      description: "Welcome back to Peer Connect!",
+      title: "Connexion réussie",
+      description: "Bienvenue sur Peer Connect !",
     });
     
-    // Redirect to dashboard
+    // Redirection vers le tableau de bord
     navigate("/");
   };
   
   const handleRegister = (e: React.FormEvent) => {
     e.preventDefault();
     
-    // Simple password validation
+    // Validation simple du mot de passe
     if (registerPassword !== confirmPassword) {
       toast({
-        title: "Passwords don't match",
-        description: "Please make sure your passwords match.",
+        title: "Les mots de passe ne correspondent pas",
+        description: "Veuillez vérifier que vos mots de passe sont identiques.",
         variant: "destructive",
       });
       return;
     }
     
-    // In a real application, this would send registration data to an API
+    // Dans une application réelle, ceci enverrait les données d'inscription à une API
     toast({
-      title: "Account created",
-      description: "Your account has been created successfully!",
+      title: "Compte créé",
+      description: "Votre compte a été créé avec succès !",
     });
     
-    // Redirect to dashboard
+    // Redirection vers le tableau de bord
     navigate("/");
   };
   
@@ -65,21 +65,21 @@ const AuthPage = () => {
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
           <h1 className="text-3xl font-bold mb-2">Peer Connect</h1>
-          <p className="text-muted-foreground">Connect with anyone, anywhere, anytime</p>
+          <p className="text-muted-foreground">Connectez-vous avec n'importe qui, n'importe où, n'importe quand</p>
         </div>
         
         <Tabs defaultValue="login" className="w-full">
           <TabsList className="grid grid-cols-2 w-full mb-8">
-            <TabsTrigger value="login">Login</TabsTrigger>
-            <TabsTrigger value="register">Register</TabsTrigger>
+            <TabsTrigger value="login">Connexion</TabsTrigger>
+            <TabsTrigger value="register">Inscription</TabsTrigger>
           </TabsList>
           
           <TabsContent value="login">
             <Card>
               <CardHeader>
-                <CardTitle>Welcome back</CardTitle>
+                <CardTitle>Bon retour parmi nous</CardTitle>
                 <CardDescription>
-                  Enter your credentials to access your account
+                  Entrez vos identifiants pour accéder à votre compte
                 </CardDescription>
               </CardHeader>
               <form onSubmit={handleLogin}>
@@ -89,7 +89,7 @@ const AuthPage = () => {
                     <Input 
                       id="email" 
                       type="email" 
-                      placeholder="name@example.com" 
+                      placeholder="nom@exemple.com" 
                       value={loginEmail}
                       onChange={(e) => setLoginEmail(e.target.value)}
                       required
@@ -97,9 +97,9 @@ const AuthPage = () => {
                   </div>
                   <div className="space-y-2">
                     <div className="flex items-center justify-between">
-                      <Label htmlFor="password">Password</Label>
+                      <Label htmlFor="password">Mot de passe</Label>
                       <a href="#" className="text-sm text-primary hover:underline">
-                        Forgot password?
+                        Mot de passe oublié ?
                       </a>
                     </div>
                     <Input 
@@ -116,12 +116,12 @@ const AuthPage = () => {
                       htmlFor="remember"
                       className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
                     >
-                      Remember me
+                      Se souvenir de moi
                     </label>
                   </div>
                 </CardContent>
                 <CardFooter>
-                  <Button type="submit" className="w-full">Login</Button>
+                  <Button type="submit" className="w-full">Se connecter</Button>
                 </CardFooter>
               </form>
             </Card>
@@ -130,18 +130,18 @@ const AuthPage = () => {
           <TabsContent value="register">
             <Card>
               <CardHeader>
-                <CardTitle>Create an account</CardTitle>
+                <CardTitle>Créer un compte</CardTitle>
                 <CardDescription>
-                  Enter your information to create a new account
+                  Entrez vos informations pour créer un nouveau compte
                 </CardDescription>
               </CardHeader>
               <form onSubmit={handleRegister}>
                 <CardContent className="space-y-4">
                   <div className="space-y-2">
-                    <Label htmlFor="name">Full Name</Label>
+                    <Label htmlFor="name">Nom complet</Label>
                     <Input 
                       id="name" 
-                      placeholder="John Doe" 
+                      placeholder="Jean Dupont" 
                       value={registerName}
                       onChange={(e) => setRegisterName(e.target.value)}
                       required
@@ -152,14 +152,14 @@ const AuthPage = () => {
                     <Input 
                       id="register-email" 
                       type="email" 
-                      placeholder="name@example.com" 
+                      placeholder="nom@exemple.com" 
                       value={registerEmail}
                       onChange={(e) => setRegisterEmail(e.target.value)}
                       required
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="register-password">Password</Label>
+                    <Label htmlFor="register-password">Mot de passe</Label>
                     <Input 
                       id="register-password" 
                       type="password"
@@ -169,7 +169,7 @@ const AuthPage = () => {
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="confirm-password">Confirm Password</Label>
+                    <Label htmlFor="confirm-password">Confirmer le mot de passe</Label>
                     <Input 
                       id="confirm-password" 
                       type="password"
@@ -184,12 +184,12 @@ const AuthPage = () => {
                       htmlFor="terms"
                       className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
                     >
-                      I agree to the <a href="#" className="text-primary hover:underline">Terms of Service</a> and <a href="#" className="text-primary hover:underline">Privacy Policy</a>
+                      J'accepte les <a href="#" className="text-primary hover:underline">Conditions d'utilisation</a> et la <a href="#" className="text-primary hover:underline">Politique de confidentialité</a>
                     </label>
                   </div>
                 </CardContent>
                 <CardFooter>
-                  <Button type="submit" className="w-full">Register</Button>
+                  <Button type="submit" className="w-full">S'inscrire</Button>
                 </CardFooter>
               </form>
             </Card>

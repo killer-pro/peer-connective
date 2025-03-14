@@ -7,6 +7,7 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import Index from "./pages/Index";
 import CallPage from "./pages/CallPage";
 import CallsPage from "./pages/CallsPage";
+import CreateGroupCallPage from "./pages/CreateGroupCallPage";
 import ContactsPage from "./pages/ContactsPage";
 import SchedulePage from "./pages/SchedulePage";
 import HistoryPage from "./pages/HistoryPage";
@@ -27,6 +28,7 @@ const App = () => (
           <Route path="/" element={<Index />} />
           <Route path="/call" element={<CallPage />} />
           <Route path="/calls" element={<CallsPage />} />
+          <Route path="/group-call" element={<CreateGroupCallPage />} />
           <Route path="/contacts" element={<ContactsPage />} />
           <Route path="/schedule" element={<SchedulePage />} />
           <Route path="/history" element={<HistoryPage />} />
