@@ -46,7 +46,7 @@ export interface ContactCreate {
 export const contactsService = {
     // Récupérer tous les contacts
     getContacts: async (): Promise<BackendContact[]> => {
-        return apiService.get<BackendContact[]>('/contacts/');
+        return apiService.get<BackendContact[]>('/contacts/me');
     },
 
     // Récupérer un contact spécifique
@@ -56,7 +56,7 @@ export const contactsService = {
 
     // Créer un nouveau contact
     createContact: async (data: ContactCreate): Promise<BackendContact> => {
-        return apiService.post<BackendContact>('/contacts/', data);
+        return apiService.post<BackendContact>('/contacts/me/', data);
     },
 
     // Mettre à jour un contact
@@ -71,7 +71,7 @@ export const contactsService = {
 
     // Ajouter/Retirer des favoris
     toggleFavorite: async (contactId: number): Promise<BackendContact> => {
-        return apiService.post<BackendContact>(`/contacts/${contactId}/toggle_favorite/`, {});
+        return apiService.post<BackendContact>(`/contacts/me/${contactId}/toggle_favorite/`, {});
     },
 
     // Rechercher des contacts
@@ -81,12 +81,12 @@ export const contactsService = {
 
     // Récupérer les contacts favoris
     getFavorites: async (): Promise<BackendContact[]> => {
-        return apiService.get<BackendContact[]>('/contacts/favorites/');
+        return apiService.get<BackendContact[]>('/contacts/me/favorites/');
     },
 
     // Récupérer les utilisateurs disponibles pour créer un contact
     getAvailableUsers: async (): Promise<BackendContact["contact_user_details"][]> => {
-        return apiService.get<BackendContact["contact_user_details"][]>('/users/');
+        return apiService.get<BackendContact["contact_user_details"][]>('/users/users');
     },
 
     // Ajouter un contact à un groupe
