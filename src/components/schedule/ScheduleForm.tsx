@@ -1,257 +1,236 @@
 
 import React, { useState } from 'react';
-import { format } from 'date-fns';
-import { CalendarIcon, Plus } from 'lucide-react';
-import { useToast } from '@/components/ui/use-toast';
-import { Button } from '@/components/ui/button';
+import { z } from 'zod';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { 
+  Form, 
+  FormControl, 
+  FormField, 
+  FormItem, 
+  FormLabel, 
+  FormMessage 
+} from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
-import { Calendar } from '@/components/ui/calendar';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { Button } from '@/components/ui/button';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { cn } from '@/lib/utils';
+import { Calendar } from '@/components/ui/calendar';
+import { format } from 'date-fns';
+import { CalendarIcon, Clock } from 'lucide-react';
+import { TimeTypeSelector } from '@/components/call/TimeTypeSelector';
+import { CallTypeSelector } from '@/components/call/CallTypeSelector';
+import { ParticipantSelector } from '@/components/call/ParticipantSelector';
 import { mockContacts } from './types';
-import { ScheduledCallDisplay } from './types';
+
+// Schema for form validation
+const formSchema = z.object({
+  title: z.string().min(2, { message: "Title must be at least 2 characters." }),
+  callType: z.enum(["audio", "video"]),
+  isRecurring: z.enum(["one-time", "recurring"]),
+  date: z.date({
+    required_error: "Please select a date.",
+  }),
+  time: z.string().regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, {
+    message: "Please enter a valid time in 24-hour format (HH:MM)."
+  }),
+  participantIds: z.array(z.string()).min(1, {
+    message: "Please select at least one participant."
+  })
+});
+
+type FormValues = z.infer<typeof formSchema>;
 
 interface ScheduleFormProps {
-  onScheduleCall: (newCall: ScheduledCallDisplay) => void;
+  onSchedule: (values: FormValues) => void;
+  onCancel: () => void;
 }
 
-const ScheduleForm: React.FC<ScheduleFormProps> = ({ onScheduleCall }) => {
-  const { toast } = useToast();
-  const [isOpen, setIsOpen] = useState(false);
-  const [selectedParticipants, setSelectedParticipants] = useState<string[]>([]);
-  const [newCall, setNewCall] = useState<Partial<ScheduledCallDisplay>>({
-    title: "",
-    date: new Date(),
-    startTime: "09:00",
-    endTime: "09:30",
-    description: "",
-    participants: [],
-    isGroup: false,
-  });
-
-  const handleAddParticipant = (contactId: string) => {
-    if (selectedParticipants.includes(contactId)) {
-      setSelectedParticipants(selectedParticipants.filter(id => id !== contactId));
-    } else {
-      setSelectedParticipants([...selectedParticipants, contactId]);
-    }
-  };
-
-  const handleScheduleCall = () => {
-    if (!newCall.title || !newCall.date || !newCall.startTime || !newCall.endTime) {
-      toast({
-        title: "Error",
-        description: "Please fill in all required fields.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    // Calculate duration based on start and end time
-    const startParts = newCall.startTime.split(':').map(Number);
-    const endParts = newCall.endTime.split(':').map(Number);
-    const startMinutes = startParts[0] * 60 + startParts[1];
-    const endMinutes = endParts[0] * 60 + endParts[1];
-    const durationMinutes = endMinutes - startMinutes;
-    
-    if (durationMinutes <= 0) {
-      toast({
-        title: "Error",
-        description: "End time must be after start time.",
-        variant: "destructive",
-      });
-      return;
-    }
-    
-    const hours = Math.floor(durationMinutes / 60);
-    const minutes = durationMinutes % 60;
-    const durationStr = hours > 0 
-      ? (minutes > 0 ? `${hours} hour${hours > 1 ? 's' : ''} ${minutes} min` : `${hours} hour${hours > 1 ? 's' : ''}`)
-      : `${minutes} min`;
-
-    const selectedContacts = mockContacts.filter(contact => 
-      selectedParticipants.includes(contact.id)
-    ).map(contact => ({
-      id: contact.id,
-      name: contact.name,
-      avatar: contact.avatar,
-    }));
-
-    const scheduledCall: ScheduledCallDisplay = {
-      id: String(Date.now()),
-      title: newCall.title || "",
-      date: newCall.date || new Date(),
-      startTime: newCall.startTime || "",
-      endTime: newCall.endTime || "",
-      duration: durationStr,
-      participants: selectedContacts,
-      description: newCall.description,
-      isGroup: selectedContacts.length > 1,
-    };
-
-    onScheduleCall(scheduledCall);
-    
-    // Reset form
-    setNewCall({
-      title: "",
+const ScheduleForm: React.FC<ScheduleFormProps> = ({ onSchedule, onCancel }) => {
+  const [selectedTime, setSelectedTime] = useState('12:00');
+  
+  // Form configuration
+  const form = useForm<FormValues>({
+    resolver: zodResolver(formSchema),
+    defaultValues: {
+      title: '',
+      callType: 'video',
+      isRecurring: 'one-time',
       date: new Date(),
-      startTime: "09:00",
-      endTime: "09:30",
-      description: "",
-      participants: [],
-      isGroup: false,
-    });
-    setSelectedParticipants([]);
-    setIsOpen(false);
-    
-    toast({
-      title: "Call Scheduled",
-      description: `"${scheduledCall.title}" has been scheduled.`,
-    });
+      time: '12:00',
+      participantIds: []
+    }
+  });
+  
+  // Function to handle form submission
+  const onSubmit = (values: FormValues) => {
+    onSchedule(values);
   };
-
+  
+  // Function to handle time selection
+  const handleTimeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setSelectedTime(e.target.value);
+    form.setValue('time', e.target.value);
+  };
+  
+  // Function to handle participant selection
+  const handleParticipantChange = (selectedIds: string[]) => {
+    form.setValue('participantIds', selectedIds);
+  };
+  
   return (
-    <Dialog open={isOpen} onOpenChange={setIsOpen}>
-      <DialogTrigger asChild>
-        <Button>
-          <Plus className="h-4 w-4 mr-2" />
-          <span>Schedule Call</span>
-        </Button>
-      </DialogTrigger>
-      <DialogContent className="sm:max-w-[600px]">
-        <DialogHeader>
-          <DialogTitle>Schedule New Call</DialogTitle>
-          <DialogDescription>
-            Fill in the details below to schedule a new call.
-          </DialogDescription>
-        </DialogHeader>
-        <div className="grid gap-4 py-4">
-          <div className="grid gap-2">
-            <Label htmlFor="title">Call Title</Label>
-            <Input
-              id="title"
-              placeholder="Weekly Team Meeting"
-              value={newCall.title}
-              onChange={(e) => setNewCall({...newCall, title: e.target.value})}
-            />
-          </div>
-          
-          <div className="grid grid-cols-2 gap-4">
-            <div className="grid gap-2">
-              <Label>Date</Label>
+    <Form {...form}>
+      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+        {/* Title field */}
+        <FormField
+          control={form.control}
+          name="title"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Call Title</FormLabel>
+              <FormControl>
+                <Input placeholder="Enter call title" {...field} />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+        
+        {/* Call Type field */}
+        <FormField
+          control={form.control}
+          name="callType"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Call Type</FormLabel>
+              <FormControl>
+                <CallTypeSelector
+                  value={field.value}
+                  onChange={(value) => field.onChange(value)}
+                />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+        
+        {/* Recurring field */}
+        <FormField
+          control={form.control}
+          name="isRecurring"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Frequency</FormLabel>
+              <FormControl>
+                <RadioGroup
+                  onValueChange={field.onChange}
+                  value={field.value}
+                  className="flex gap-4"
+                >
+                  <div className="flex items-center space-x-2">
+                    <RadioGroupItem value="one-time" id="one-time" />
+                    <label htmlFor="one-time">One-time</label>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <RadioGroupItem value="recurring" id="recurring" />
+                    <label htmlFor="recurring">Recurring</label>
+                  </div>
+                </RadioGroup>
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+        
+        {/* Date field */}
+        <FormField
+          control={form.control}
+          name="date"
+          render={({ field }) => (
+            <FormItem className="flex flex-col">
+              <FormLabel>Date</FormLabel>
               <Popover>
                 <PopoverTrigger asChild>
-                  <Button
-                    variant="outline"
-                    className="justify-start text-left font-normal"
-                  >
-                    <CalendarIcon className="mr-2 h-4 w-4" />
-                    {newCall.date ? format(newCall.date, "PPP") : "Select date"}
-                  </Button>
+                  <FormControl>
+                    <Button
+                      variant="outline"
+                      className="w-full pl-3 text-left font-normal flex justify-between items-center"
+                    >
+                      {field.value ? (
+                        format(field.value, "PPP")
+                      ) : (
+                        <span>Pick a date</span>
+                      )}
+                      <CalendarIcon className="h-4 w-4 opacity-50" />
+                    </Button>
+                  </FormControl>
                 </PopoverTrigger>
-                <PopoverContent className="w-auto p-0">
+                <PopoverContent className="w-auto p-0" align="start">
                   <Calendar
                     mode="single"
-                    selected={newCall.date}
-                    onSelect={(date) => date && setNewCall({...newCall, date})}
+                    selected={field.value}
+                    onSelect={field.onChange}
+                    disabled={(date) => date < new Date()}
                     initialFocus
                   />
                 </PopoverContent>
               </Popover>
-            </div>
-            
-            <div className="grid grid-cols-2 gap-2">
-              <div>
-                <Label htmlFor="startTime">Start Time</Label>
-                <Select 
-                  value={newCall.startTime} 
-                  onValueChange={(value) => setNewCall({...newCall, startTime: value})}
-                >
-                  <SelectTrigger id="startTime">
-                    <SelectValue placeholder="09:00" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {Array.from({ length: 24 }).map((_, hour) => (
-                      <SelectItem key={hour} value={`${hour.toString().padStart(2, '0')}:00`}>
-                        {`${hour.toString().padStart(2, '0')}:00`}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div>
-                <Label htmlFor="endTime">End Time</Label>
-                <Select 
-                  value={newCall.endTime} 
-                  onValueChange={(value) => setNewCall({...newCall, endTime: value})}
-                >
-                  <SelectTrigger id="endTime">
-                    <SelectValue placeholder="09:30" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {Array.from({ length: 24 }).map((_, hour) => (
-                      <>
-                        <SelectItem key={`${hour}-00`} value={`${hour.toString().padStart(2, '0')}:00`}>
-                          {`${hour.toString().padStart(2, '0')}:00`}
-                        </SelectItem>
-                        <SelectItem key={`${hour}-30`} value={`${hour.toString().padStart(2, '0')}:30`}>
-                          {`${hour.toString().padStart(2, '0')}:30`}
-                        </SelectItem>
-                      </>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-          </div>
-          
-          <div className="grid gap-2">
-            <Label>Participants</Label>
-            <div className="grid grid-cols-2 gap-2 max-h-40 overflow-y-auto p-2 border rounded-md">
-              {mockContacts.map((contact) => (
-                <div
-                  key={contact.id}
-                  className={cn(
-                    "flex items-center gap-2 p-2 rounded-md cursor-pointer hover:bg-muted transition-colors",
-                    selectedParticipants.includes(contact.id) && "bg-primary/10"
-                  )}
-                  onClick={() => handleAddParticipant(contact.id)}
-                >
-                  <Avatar className="h-8 w-8">
-                    <AvatarImage src={contact.avatar} alt={contact.name} />
-                    <AvatarFallback className="bg-primary/10 text-primary text-xs">
-                      {contact.name.split(" ").map(n => n[0]).join("")}
-                    </AvatarFallback>
-                  </Avatar>
-                  <span className="text-sm font-medium">{contact.name}</span>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+        
+        {/* Time field */}
+        <FormField
+          control={form.control}
+          name="time"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Time</FormLabel>
+              <FormControl>
+                <div className="relative">
+                  <Input
+                    type="time"
+                    {...field}
+                    onChange={handleTimeChange}
+                    className="pl-10"
+                  />
+                  <Clock className="absolute left-3 top-2.5 h-5 w-5 text-muted-foreground" />
                 </div>
-              ))}
-            </div>
-          </div>
-          
-          <div className="grid gap-2">
-            <Label htmlFor="description">Description (Optional)</Label>
-            <Textarea
-              id="description"
-              placeholder="Enter call details or agenda..."
-              value={newCall.description}
-              onChange={(e) => setNewCall({...newCall, description: e.target.value})}
-            />
-          </div>
-        </div>
-        <DialogFooter>
-          <Button variant="outline" onClick={() => setIsOpen(false)}>
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+        
+        {/* Participants field */}
+        <FormField
+          control={form.control}
+          name="participantIds"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Participants</FormLabel>
+              <FormControl>
+                <ParticipantSelector
+                  contacts={mockContacts}
+                  selectedIds={field.value}
+                  onChange={handleParticipantChange}
+                />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+        
+        {/* Form buttons */}
+        <div className="flex justify-end gap-2 pt-4">
+          <Button variant="outline" type="button" onClick={onCancel}>
             Cancel
           </Button>
-          <Button onClick={handleScheduleCall}>Schedule Call</Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+          <Button type="submit">Schedule Call</Button>
+        </div>
+      </form>
+    </Form>
   );
 };
 

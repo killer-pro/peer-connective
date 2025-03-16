@@ -1,142 +1,121 @@
 
-import { useState } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Video, Clock, Calendar } from "lucide-react";
-import { cn } from "@/lib/utils";
-import { useNavigate } from "react-router-dom";
-import { format } from "date-fns";
-import { ScheduledCall } from "@/types/call";
+import React from 'react';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Video, Phone, CalendarClock } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { formatDistanceToNow } from 'date-fns';
+import { ScheduledCallDisplay } from '@/components/schedule/types';
 
-// Fallback empty state component
-const EmptyScheduledCalls = () => (
-  <div className="flex flex-col items-center justify-center py-8 text-center">
-    <Calendar className="h-12 w-12 text-muted-foreground mb-3" />
-    <h3 className="text-lg font-medium mb-1">No scheduled calls</h3>
-    <p className="text-sm text-muted-foreground mb-4">
-      Your upcoming calls will appear here.
-    </p>
-    <Button
-      variant="outline"
-      onClick={() => {
-        window.location.href = "/schedule";
-      }}
-    >
-      Schedule a call
-    </Button>
-  </div>
-);
+// Mock calls data for the dashboard, to be replaced with API calls
+const mockUpcomingCalls: ScheduledCallDisplay[] = [
+  {
+    id: "1",
+    title: "Weekly Team Meeting",
+    call_type: "video",
+    scheduled_time: new Date(Date.now() + 60 * 60 * 1000), // 1 hour from now
+    participants: [
+      { id: "1", name: "Alex Morgan", avatar: "" },
+      { id: "2", name: "Taylor Swift", avatar: "" },
+      { id: "3", name: "Chris Evans", avatar: "" },
+    ],
+    is_group_call: true,
+    status: "planned"
+  },
+  {
+    id: "2",
+    title: "Project Review",
+    call_type: "audio",
+    scheduled_time: new Date(Date.now() + 3 * 60 * 60 * 1000), // 3 hours from now
+    participants: [
+      { id: "2", name: "Taylor Swift", avatar: "" },
+    ],
+    is_group_call: false,
+    status: "planned"
+  }
+];
 
 interface ScheduledCallsProps {
-  calls?: ScheduledCall[];
+  limit?: number;
 }
 
-export function ScheduledCalls({ calls }: ScheduledCallsProps) {
+export const ScheduledCalls: React.FC<ScheduledCallsProps> = ({ limit = 3 }) => {
   const navigate = useNavigate();
-  const [scheduledCalls, setScheduledCalls] = useState<ScheduledCall[]>(
-    calls || []
-  );
-
-  // Format the date for display
-  const formatDate = (dateStr: Date | string) => {
-    const date = typeof dateStr === 'string' ? new Date(dateStr) : dateStr;
-    return format(date, "d MMM");
+  
+  // In a real app, you'd fetch data from an API
+  const upcomingCalls = mockUpcomingCalls.slice(0, limit);
+  
+  const handleViewAll = () => {
+    navigate('/schedule');
   };
-
-  // If there are no scheduled calls, display the empty state
-  if (!scheduledCalls || scheduledCalls.length === 0) {
-    return (
-      <Card>
-        <CardHeader>
-          <CardTitle>Scheduled Calls</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <EmptyScheduledCalls />
-        </CardContent>
-      </Card>
-    );
-  }
-
+  
   return (
-    <Card>
+    <Card className="h-full">
       <CardHeader className="flex flex-row items-center justify-between">
-        <CardTitle>Scheduled Calls</CardTitle>
-        <Button
-          variant="ghost"
-          size="sm"
-          className="h-8 text-xs"
-          onClick={() => navigate("/schedule")}
-        >
-          View All
-        </Button>
+        <CardTitle className="text-xl">Scheduled Calls</CardTitle>
+        <Button variant="link" className="px-0" onClick={handleViewAll}>View All</Button>
       </CardHeader>
-      <CardContent>
-        <div className="space-y-4">
-          {scheduledCalls.slice(0, 3).map((call) => {
-            // For safety, ensure participants is always an array
-            const participants = Array.isArray(call.participants) 
-              ? call.participants 
-              : [];
-            
-            return (
-              <div
-                key={call.id}
-                className="flex items-start gap-3 p-2 rounded-lg bg-card/50 hover:bg-card/75 transition-colors cursor-pointer"
-                onClick={() => navigate(`/call/${call.id}`)}
-              >
-                <div className="bg-primary/10 rounded-lg p-3 flex-shrink-0">
-                  <Video className="h-4 w-4 text-primary" />
-                </div>
-  
-                <div className="flex-grow min-w-0">
-                  <h4 className="font-medium text-sm mb-1 truncate">
-                    {call.title}
-                  </h4>
-                  <div className="flex items-center text-xs text-muted-foreground gap-2">
-                    <span className="flex items-center gap-1">
-                      <Clock className="h-3 w-3" />
-                      {call.startTime}{call.endTime ? ` - ${call.endTime}` : ''}
-                    </span>
-                    <span>•</span>
-                    <span className="flex items-center gap-1">
-                      <Calendar className="h-3 w-3" />
-                      {call.date && formatDate(call.date)}
-                    </span>
-                  </div>
-                </div>
-  
-                <div className="flex -space-x-2">
-                  {participants.slice(0, 3).map((participant, i) => {
-                    const name = typeof participant === 'object' ? participant.username : '';
-                    const avatar = typeof participant === 'object' ? participant.profile_image : '';
-                    
-                    return (
-                      <Avatar
-                        key={i}
-                        className={cn("h-6 w-6 border border-background")}
-                      >
-                        <AvatarImage
-                          src={avatar || ""}
-                          alt={name || "Participant"}
-                        />
-                        <AvatarFallback className="text-[10px]">
-                          {name ? name.charAt(0).toUpperCase() : "U"}
-                        </AvatarFallback>
-                      </Avatar>
-                    );
-                  })}
-                  {participants.length > 3 && (
-                    <div className="h-6 w-6 rounded-full bg-muted flex items-center justify-center text-[10px] border border-background">
-                      +{participants.length - 3}
-                    </div>
-                  )}
-                </div>
-              </div>
-            );
-          })}
-        </div>
+      <CardContent className="grid gap-4">
+        {upcomingCalls.length === 0 ? (
+          <div className="text-center py-4 text-muted-foreground">
+            No upcoming calls scheduled
+          </div>
+        ) : (
+          upcomingCalls.map((call) => (
+            <ScheduledCallItem key={call.id} call={call} />
+          ))
+        )}
       </CardContent>
     </Card>
   );
-}
+};
+
+const ScheduledCallItem: React.FC<{ call: ScheduledCallDisplay }> = ({ call }) => {
+  const navigate = useNavigate();
+
+  const callTypeIcon = call.call_type === "video" ? 
+    <Video className="h-4 w-4 text-blue-500" /> : 
+    <Phone className="h-4 w-4 text-green-500" />;
+  
+  const timeUntil = call.scheduled_time ? 
+    formatDistanceToNow(new Date(call.scheduled_time), { addSuffix: true }) : 
+    "Time not specified";
+  
+  const handleJoinCall = () => {
+    navigate(`/call?id=${call.id}`);
+  };
+  
+  return (
+    <div className="flex items-center gap-4 border rounded-lg p-3">
+      <div className="flex-shrink-0">
+        {callTypeIcon}
+      </div>
+      <div className="flex-grow min-w-0">
+        <h4 className="font-medium truncate">{call.title}</h4>
+        <div className="flex items-center text-sm text-muted-foreground gap-1">
+          <CalendarClock className="h-3 w-3" />
+          <span>{timeUntil}</span>
+        </div>
+        <div className="flex items-center mt-1 -space-x-2">
+          {call.participants.slice(0, 3).map((participant) => (
+            <Avatar key={participant.id} className="h-6 w-6 border border-background">
+              <AvatarImage src={participant.avatar} alt={participant.name} />
+              <AvatarFallback>{participant.name.charAt(0)}</AvatarFallback>
+            </Avatar>
+          ))}
+          {call.participants.length > 3 && (
+            <div className="h-6 w-6 rounded-full bg-muted flex items-center justify-center text-xs">
+              +{call.participants.length - 3}
+            </div>
+          )}
+        </div>
+      </div>
+      <Button size="sm" onClick={handleJoinCall}>
+        Join
+      </Button>
+    </div>
+  );
+};
+
+export default ScheduledCalls;

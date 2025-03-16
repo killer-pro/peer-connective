@@ -1,6 +1,5 @@
 
 import axios, { AxiosError, AxiosRequestConfig, AxiosResponse } from 'axios';
-import { authService } from './auth';
 
 // Base API URL
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000/api';
@@ -16,9 +15,10 @@ const api = axios.create({
 // Add request interceptor to include auth token in requests
 api.interceptors.request.use(
   (config) => {
-    const token = authService.getToken();
+    const token = localStorage.getItem('auth_tokens');
     if (token) {
-      config.headers['Authorization'] = `Bearer ${token}`;
+      const parsedToken = JSON.parse(token);
+      config.headers['Authorization'] = `Bearer ${parsedToken.access}`;
     }
     return config;
   },
@@ -39,7 +39,7 @@ api.interceptors.response.use(
     // Handle 401 Unauthorized - token expired or invalid
     if (response?.status === 401) {
       // Logout user if token is invalid/expired
-      authService.logout();
+      localStorage.removeItem('auth_tokens');
       window.location.href = '/auth';
     }
 

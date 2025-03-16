@@ -1,5 +1,5 @@
 
-import { api } from './api';
+import api, { apiService } from './api';
 
 interface LoginCredentials {
   username: string;
@@ -54,14 +54,14 @@ const clearTokens = () => {
 export const authService = {
   // Connexion
   login: async (credentials: LoginCredentials): Promise<AuthResponse> => {
-    const response = await api.post<AuthResponse>('/auth/login/', credentials);
+    const response = await apiService.post<AuthResponse>('/auth/login/', credentials);
     saveTokens({ access: response.access, refresh: response.refresh });
     return response;
   },
   
   // Inscription
   register: async (data: RegisterData): Promise<AuthResponse> => {
-    const response = await api.post<AuthResponse>('/auth/register/', data);
+    const response = await apiService.post<AuthResponse>('/auth/register/', data);
     saveTokens({ access: response.access, refresh: response.refresh });
     return response;
   },
@@ -71,7 +71,7 @@ export const authService = {
     const { refresh } = getTokens();
     if (refresh) {
       try {
-        await api.post('/auth/logout/', { refresh });
+        await apiService.post('/auth/logout/', { refresh });
       } catch (error) {
         console.error('Logout error', error);
       }
@@ -85,7 +85,7 @@ export const authService = {
     if (!refresh) return null;
     
     try {
-      const response = await api.post<RefreshResponse>('/auth/token/refresh/', { refresh });
+      const response = await apiService.post<RefreshResponse>('/auth/token/refresh/', { refresh });
       saveTokens({ access: response.access, refresh });
       return response.access;
     } catch (error) {
@@ -102,7 +102,7 @@ export const authService = {
   },
   
   // Récupération du token pour les requêtes API
-  getAccessToken: (): string | null => {
+  getToken: (): string | null => {
     const { access } = getTokens();
     return access;
   },
@@ -110,9 +110,7 @@ export const authService = {
   // Récupération des informations utilisateur
   getCurrentUser: async () => {
     if (!authService.isAuthenticated()) return null;
-    return api.get('/auth/user/', {
-      token: authService.getAccessToken() || undefined
-    });
+    return apiService.get('/auth/user/');
   }
 };
 

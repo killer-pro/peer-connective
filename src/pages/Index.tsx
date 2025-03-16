@@ -1,49 +1,27 @@
 
-import { useNavigate } from "react-router-dom";
-import Layout from "@/components/layout/Layout";
-import DashboardStats from "@/components/dashboard/DashboardStats";
-import RecentCalls from "@/components/dashboard/RecentCalls";
-import ContactsList from "@/components/dashboard/ContactsList";
-import ScheduledCalls from "@/components/dashboard/ScheduledCalls";
-import { Button } from "@/components/ui/button";
-import { PlusIcon, VideoIcon, MicIcon } from "lucide-react";
+import React from 'react';
+import Layout from '@/components/layout/Layout';
+import { DashboardStats } from '@/components/dashboard/DashboardStats';
+import { RecentCalls } from '@/components/dashboard/RecentCalls';
+import { ScheduledCalls } from '@/components/dashboard/ScheduledCalls';
+import { ContactsList } from '@/components/dashboard/ContactsList';
 
 const Index = () => {
-  const navigate = useNavigate();
-  
-  const handleNewCall = () => {
-    navigate("/call");
-  };
-  
-  const handleRecordings = () => {
-    navigate("/recordings");
-  };
-  
   return (
     <Layout>
-      <div className="space-y-6">
-        <div className="flex items-center justify-between">
-          <h1 className="text-2xl font-semibold">Dashboard</h1>
-          <div className="flex items-center gap-2">
-            <Button variant="outline" className="gap-2" onClick={handleRecordings}>
-              <MicIcon className="h-4 w-4" />
-              <span>Recordings</span>
-            </Button>
-            <Button className="gap-2" onClick={handleNewCall}>
-              <PlusIcon className="h-4 w-4" />
-              <span>New Call</span>
-            </Button>
-          </div>
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="lg:col-span-2">
+          <DashboardStats />
         </div>
-        
-        <DashboardStats />
-        
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <RecentCalls />
+        <div className="lg:row-span-2">
           <ContactsList />
         </div>
-        
-        <ScheduledCalls />
+        <div className="md:col-span-1">
+          <RecentCalls />
+        </div>
+        <div className="md:col-span-1">
+          <ScheduledCalls />
+        </div>
       </div>
     </Layout>
   );
