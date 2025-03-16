@@ -1,341 +1,433 @@
 
-import { useEffect, useState } from "react";
-import { useLocation } from "react-router-dom";
-import { 
-  Mic, MicOff, Video, VideoOff, Phone, 
-  ScreenShare, ScreenShareOff, MessageSquare, 
-  Users, Settings, Clock, Share2, MoreVertical
+// Fix for the redeclaration of participants variable
+import { useEffect, useRef, useState } from "react";
+import { useNavigate, useParams, useLocation } from "react-router-dom";
+import {
+  Phone,
+  PhoneOff,
+  Mic,
+  MicOff,
+  Video,
+  VideoOff,
+  MessageSquare,
+  MoreVertical,
+  User,
+  Users,
+  Maximize,
+  Minimize,
+  X,
+  Send,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { cn } from "@/lib/utils";
 import { useToast } from "@/components/ui/use-toast";
-import { useCallWebSocket } from "@/hooks/useWebSocket";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Input } from "@/components/ui/input";
+import { Card } from "@/components/ui/card";
+
+const PEER_CONNECTION_CONFIG = {
+  iceServers: [
+    { urls: "stun:stun.l.google.com:19302" },
+    { urls: "stun:stun1.l.google.com:19302" },
+  ],
+};
 
 const CallPage = () => {
+  const navigate = useNavigate();
   const { toast } = useToast();
+  const { callId } = useParams();
   const location = useLocation();
-  const groupCall = location.state?.groupCall;
-  const callId = groupCall?.id || "default";
+  const localVideoRef = useRef<HTMLVideoElement>(null);
+  const remoteVideoRef = useRef<HTMLVideoElement>(null);
+  const peerConnection = useRef<RTCPeerConnection | null>(null);
+  const dataChannel = useRef<RTCDataChannel | null>(null);
   
-  const [micEnabled, setMicEnabled] = useState(true);
-  const [videoEnabled, setVideoEnabled] = useState(true);
-  const [screenShareEnabled, setScreenShareEnabled] = useState(false);
-  const [callDuration, setCallDuration] = useState(0);
-  const [showParticipants, setShowParticipants] = useState(false);
-  const [messages, setMessages] = useState<any[]>([]);
+  // State for UI
+  const [callActive, setCallActive] = useState<boolean>(true);
+  const [micActive, setMicActive] = useState<boolean>(true);
+  const [videoActive, setVideoActive] = useState<boolean>(true);
+  const [chatOpen, setChatOpen] = useState<boolean>(false);
+  const [fullscreen, setFullscreen] = useState<boolean>(false);
+  const [message, setMessage] = useState<string>("");
+  const [messages, setMessages] = useState<Array<{sender: string, content: string}>>([]);
   
-  // Participants initiaux (seront remplacés par les données du serveur)
-  const [participants, setParticipants] = useState([
-    { id: '1', name: 'You', avatar: '', isCurrentUser: true, isMuted: false, hasVideo: true },
-    { id: '2', name: 'Alex Morgan', avatar: '', isMuted: true, hasVideo: true },
-    { id: '3', name: 'Taylor Swift', avatar: '', isMuted: false, hasVideo: false },
-  ]);
+  // Mock data to be replaced with real API calls
+  const [callData, setCallData] = useState<any>(
+    location.state?.groupCall || {
+      id: callId || "1",
+      name: "Conference Call",
+      type: "video",
+    }
+  );
   
-  // Initialisation de la connexion WebSocket
-  const { isConnected, send, subscribe } = useCallWebSocket(callId, {
-    onOpen: () => {
-      toast({
-        title: "Connecté à l'appel",
-        description: "Vous êtes maintenant connecté à la salle d'appel",
-      });
-      
-      // Envoi d'un message de présence
-      send({
-        type: "join_call",
-        data: {
-          name: "User", // À remplacer par le nom de l'utilisateur authentifié
-          micEnabled,
-          videoEnabled
-        }
-      });
+  // Define the contact list here
+  const participantsList = [
+    {
+      id: "1",
+      name: "Alex Morgan",
+      avatar: "",
+      status: "online",
     },
-    onClose: () => {
-      toast({
-        title: "Déconnecté de l'appel",
-        description: "La connexion à la salle d'appel a été perdue",
-        variant: "destructive"
-      });
+    {
+      id: "2",
+      name: "James Wilson",
+      avatar: "",
+      status: "offline",
     },
-    onError: () => {
-      toast({
-        title: "Erreur de connexion",
-        description: "Impossible de se connecter à la salle d'appel",
-        variant: "destructive"
-      });
-    }
-  });
-  
-  // Abonnement aux différents types de messages
-  useEffect(() => {
-    if (!isConnected) return;
-    
-    // Gestion des nouveaux participants
-    const unsubscribeParticipantJoin = subscribe("participant_joined", (data) => {
-      setParticipants(prev => [
-        ...prev,
-        {
-          id: data.participant.id,
-          name: data.participant.name,
-          avatar: data.participant.avatar || '',
-          isCurrentUser: false,
-          isMuted: !data.participant.micEnabled,
-          hasVideo: data.participant.videoEnabled
-        }
-      ]);
-      
-      toast({
-        title: "Nouveau participant",
-        description: `${data.participant.name} a rejoint l'appel`,
-      });
-    });
-    
-    // Gestion des participants qui quittent
-    const unsubscribeParticipantLeave = subscribe("participant_left", (data) => {
-      setParticipants(prev => prev.filter(p => p.id !== data.participantId));
-      
-      toast({
-        description: `${data.participantName} a quitté l'appel`,
-      });
-    });
-    
-    // Gestion des changements d'états des participants
-    const unsubscribeParticipantUpdate = subscribe("participant_update", (data) => {
-      setParticipants(prev => prev.map(p => 
-        p.id === data.participant.id
-          ? {
-              ...p,
-              isMuted: !data.participant.micEnabled,
-              hasVideo: data.participant.videoEnabled
-            }
-          : p
-      ));
-    });
-    
-    // Gestion des messages de chat
-    const unsubscribeChatMessage = subscribe("chat_message", (data) => {
-      setMessages(prev => [...prev, data.message]);
-    });
-    
-    // Nettoyage des abonnements
-    return () => {
-      unsubscribeParticipantJoin();
-      unsubscribeParticipantLeave();
-      unsubscribeParticipantUpdate();
-      unsubscribeChatMessage();
-    };
-  }, [isConnected, subscribe, toast]);
-  
-  // Envoi des mises à jour d'état au serveur
-  useEffect(() => {
-    if (isConnected) {
-      send({
-        type: "update_state",
-        data: {
-          micEnabled,
-          videoEnabled,
-          screenShareEnabled
-        }
-      });
-    }
-  }, [isConnected, micEnabled, videoEnabled, screenShareEnabled, send]);
-  
-  // Calcul de la durée de l'appel
-  useEffect(() => {
-    const timer = setInterval(() => {
-      setCallDuration(prev => prev + 1);
-    }, 1000);
-    
-    return () => clearInterval(timer);
-  }, []);
-  
-  // Format seconds to MM:SS
-  const formatTime = (seconds: number) => {
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
-    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
-  };
-  
-  // Gestion de la fin d'appel
-  const handleEndCall = () => {
-    // Envoi d'un message de départ avant la déconnexion
-    if (isConnected) {
-      send({
-        type: "leave_call"
-      });
-    }
-    
-    // Redirection vers la page d'accueil
-    window.location.href = "/";
-  };
-  
-  // Mock participants
-  const participants = [
-    { id: '1', name: 'You', avatar: '', isCurrentUser: true, isMuted: false, hasVideo: true },
-    { id: '2', name: 'Alex Morgan', avatar: '', isMuted: true, hasVideo: true },
-    { id: '3', name: 'Taylor Swift', avatar: '', isMuted: false, hasVideo: false },
+    {
+      id: "3",
+      name: "Sarah Johnson",
+      avatar: "",
+      status: "online",
+    },
   ];
+
+  useEffect(() => {
+    // Initialize WebRTC
+    const initWebRTC = async () => {
+      try {
+        // Get user media
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: true,
+          audio: true,
+        });
+        
+        // Display local video
+        if (localVideoRef.current) {
+          localVideoRef.current.srcObject = stream;
+        }
+        
+        // Create peer connection
+        peerConnection.current = new RTCPeerConnection(PEER_CONNECTION_CONFIG);
+        
+        // Add tracks to peer connection
+        stream.getTracks().forEach(track => {
+          peerConnection.current?.addTrack(track, stream);
+        });
+        
+        // Create data channel for chat
+        dataChannel.current = peerConnection.current.createDataChannel("chat");
+        setupDataChannel(dataChannel.current);
+        
+        // Set up event handlers for peer connection
+        peerConnection.current.onicecandidate = event => {
+          if (event.candidate) {
+            // Send to signaling server
+            console.log("New ICE candidate:", event.candidate);
+          }
+        };
+        
+        peerConnection.current.ontrack = event => {
+          // Display remote video
+          if (remoteVideoRef.current && event.streams[0]) {
+            remoteVideoRef.current.srcObject = event.streams[0];
+          }
+        };
+        
+        // In a real application, here you would:
+        // 1. Connect to a signaling server
+        // 2. Exchange SDP and ICE candidates with other peers
+        
+      } catch (error) {
+        console.error("Error initializing WebRTC:", error);
+        toast({
+          variant: "destructive",
+          title: "Failed to start call",
+          description: "Could not access camera or microphone. Please check permissions.",
+        });
+      }
+    };
+    
+    initWebRTC();
+    
+    // Cleanup function
+    return () => {
+      // Close peer connection
+      if (peerConnection.current) {
+        peerConnection.current.close();
+      }
+      
+      // Stop all tracks
+      if (localVideoRef.current && localVideoRef.current.srcObject) {
+        const stream = localVideoRef.current.srcObject as MediaStream;
+        stream.getTracks().forEach(track => track.stop());
+      }
+    };
+  }, [toast]);
   
+  const setupDataChannel = (channel: RTCDataChannel) => {
+    channel.onopen = () => {
+      console.log("Data channel is open");
+    };
+    
+    channel.onmessage = event => {
+      const message = JSON.parse(event.data);
+      setMessages(prev => [...prev, message]);
+    };
+    
+    channel.onclose = () => {
+      console.log("Data channel is closed");
+    };
+  };
+  
+  const toggleMic = () => {
+    if (localVideoRef.current && localVideoRef.current.srcObject) {
+      const stream = localVideoRef.current.srcObject as MediaStream;
+      const audioTracks = stream.getAudioTracks();
+      audioTracks.forEach(track => {
+        track.enabled = !track.enabled;
+      });
+      setMicActive(audioTracks[0]?.enabled || false);
+    }
+  };
+  
+  const toggleVideo = () => {
+    if (localVideoRef.current && localVideoRef.current.srcObject) {
+      const stream = localVideoRef.current.srcObject as MediaStream;
+      const videoTracks = stream.getVideoTracks();
+      videoTracks.forEach(track => {
+        track.enabled = !track.enabled;
+      });
+      setVideoActive(videoTracks[0]?.enabled || false);
+    }
+  };
+  
+  const sendMessage = () => {
+    if (!message.trim() || !dataChannel.current) return;
+    
+    const newMessage = {
+      sender: "You",
+      content: message,
+    };
+    
+    setMessages(prev => [...prev, newMessage]);
+    
+    if (dataChannel.current.readyState === "open") {
+      dataChannel.current.send(JSON.stringify(newMessage));
+    }
+    
+    setMessage("");
+  };
+  
+  const endCall = () => {
+    // Close peer connection
+    if (peerConnection.current) {
+      peerConnection.current.close();
+    }
+    
+    // Stop all tracks
+    if (localVideoRef.current && localVideoRef.current.srcObject) {
+      const stream = localVideoRef.current.srcObject as MediaStream;
+      stream.getTracks().forEach(track => track.stop());
+    }
+    
+    setCallActive(false);
+    
+    toast({
+      title: "Call ended",
+      description: "The call has been disconnected.",
+    });
+    
+    // Navigate back
+    navigate("/");
+  };
+  
+  // Toggle fullscreen mode
+  const toggleFullscreen = () => {
+    if (!document.fullscreenElement) {
+      document.documentElement.requestFullscreen();
+      setFullscreen(true);
+    } else {
+      if (document.exitFullscreen) {
+        document.exitFullscreen();
+        setFullscreen(false);
+      }
+    }
+  };
+
   return (
     <div className="flex flex-col h-screen bg-background">
       {/* Call header */}
-      <div className="py-4 px-6 border-b border-border flex items-center justify-between">
-        <div className="flex items-center gap-4">
-          <h1 className="text-xl font-semibold">{groupCall?.name || "Appel"}</h1>
-          <div className="flex items-center gap-1 text-sm text-muted-foreground">
-            <Clock className="h-4 w-4" />
-            <span>{formatTime(callDuration)}</span>
-          </div>
-          {!isConnected && (
-            <span className="text-sm bg-red-100 text-red-800 px-2 py-0.5 rounded-full">
-              Connexion perdue
+      <div className="border-b px-4 py-3 flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <Button variant="ghost" size="icon" onClick={() => navigate(-1)}>
+            <X className="h-4 w-4" />
+          </Button>
+          <h1 className="font-medium">{callData.name || "Video Call"}</h1>
+          {callData.is_group_call && (
+            <span className="bg-primary/10 text-primary text-xs px-2 py-0.5 rounded">
+              Group
             </span>
           )}
         </div>
         
-        <div className="flex items-center gap-3">
-          <button className="text-muted-foreground hover:text-foreground" onClick={() => setShowParticipants(!showParticipants)}>
-            <Users className="h-5 w-5" />
-          </button>
-          <button className="text-muted-foreground hover:text-foreground">
-            <MessageSquare className="h-5 w-5" />
-          </button>
-          <button className="text-muted-foreground hover:text-foreground">
-            <Share2 className="h-5 w-5" />
-          </button>
-          <button className="text-muted-foreground hover:text-foreground">
-            <Settings className="h-5 w-5" />
-          </button>
-          <button className="text-muted-foreground hover:text-foreground">
-            <MoreVertical className="h-5 w-5" />
-          </button>
+        <div className="flex items-center gap-2">
+          <Button variant="ghost" size="icon" onClick={toggleFullscreen}>
+            {fullscreen ? (
+              <Minimize className="h-4 w-4" />
+            ) : (
+              <Maximize className="h-4 w-4" />
+            )}
+          </Button>
+          
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="icon">
+                <MoreVertical className="h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem>Invite participants</DropdownMenuItem>
+              <DropdownMenuItem>Start recording</DropdownMenuItem>
+              <DropdownMenuItem>Share screen</DropdownMenuItem>
+              <DropdownMenuItem className="text-destructive">
+                Report issue
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </div>
       
-      {/* Main call area */}
-      <div className="flex-1 flex">
-        {/* Video grid */}
-        <div className={cn("flex-1 p-4 grid gap-4", showParticipants ? "grid-cols-1" : "grid-cols-1 md:grid-cols-2")}>
-          {participants.map((participant) => (
-            <div 
-              key={participant.id} 
-              className={cn(
-                "video-container bg-gray-900 flex items-center justify-center relative overflow-hidden rounded-xl", 
-                participant.isCurrentUser && "order-1 md:col-span-2"
-              )}
-            >
-              {participant.hasVideo ? (
-                <div className="w-full h-full bg-gradient-to-br from-gray-800 to-gray-900 flex items-center justify-center">
-                  {/* This would be replaced with actual video feed */}
-                  <span className="text-white/50">Video Feed</span>
-                </div>
-              ) : (
-                <div className="flex flex-col items-center justify-center gap-3">
-                  <Avatar className="h-24 w-24">
-                    <AvatarImage src={participant.avatar} alt={participant.name} />
-                    <AvatarFallback className="bg-primary/10 text-primary text-4xl">
-                      {participant.name.split(" ")[0][0]}
-                    </AvatarFallback>
-                  </Avatar>
-                  <span className="text-white font-medium">{participant.name}</span>
-                </div>
-              )}
-              
-              {/* Participant info overlay */}
-              <div className="absolute bottom-3 left-3 right-3 flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <span className="bg-black/60 text-white text-sm px-3 py-1 rounded-full backdrop-blur-sm">
-                    {participant.name} {participant.isCurrentUser && '(You)'}
-                  </span>
-                  {participant.isMuted && (
-                    <span className="bg-black/60 p-1 rounded-full backdrop-blur-sm">
-                      <MicOff className="h-3.5 w-3.5 text-white" />
-                    </span>
-                  )}
-                </div>
+      {/* Call content */}
+      <div className="flex-grow grid grid-cols-1 md:grid-cols-4 gap-0">
+        {/* Main call area */}
+        <div className={`relative ${chatOpen ? "md:col-span-3" : "md:col-span-4"} bg-black`}>
+          {/* Remote video (full size) */}
+          <video
+            ref={remoteVideoRef}
+            className="h-full w-full object-cover"
+            autoPlay
+            playsInline
+          />
+          
+          {/* Local video (picture-in-picture) */}
+          <div className="absolute bottom-4 right-4 w-40 h-30 md:w-48 md:h-36 rounded-md overflow-hidden border-2 border-background">
+            <video
+              ref={localVideoRef}
+              className="h-full w-full object-cover"
+              autoPlay
+              playsInline
+              muted
+            />
+            
+            {/* Video disabled overlay */}
+            {!videoActive && (
+              <div className="absolute inset-0 bg-muted flex items-center justify-center">
+                <User className="h-8 w-8 text-muted-foreground" />
               </div>
-            </div>
-          ))}
+            )}
+          </div>
+          
+          {/* Call controls */}
+          <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 flex items-center gap-2 p-2 bg-background/80 backdrop-blur-sm rounded-full">
+            <Button
+              variant={micActive ? "ghost" : "destructive"}
+              size="icon"
+              onClick={toggleMic}
+              className="rounded-full"
+            >
+              {micActive ? <Mic className="h-4 w-4" /> : <MicOff className="h-4 w-4" />}
+            </Button>
+            
+            <Button
+              variant={videoActive ? "ghost" : "destructive"}
+              size="icon"
+              onClick={toggleVideo}
+              className="rounded-full"
+            >
+              {videoActive ? <Video className="h-4 w-4" /> : <VideoOff className="h-4 w-4" />}
+            </Button>
+            
+            <Button
+              variant="destructive"
+              size="icon"
+              onClick={endCall}
+              className="rounded-full"
+            >
+              <PhoneOff className="h-4 w-4" />
+            </Button>
+            
+            <Button
+              variant={chatOpen ? "default" : "ghost"}
+              size="icon"
+              onClick={() => setChatOpen(!chatOpen)}
+              className="rounded-full md:hidden"
+            >
+              <MessageSquare className="h-4 w-4" />
+            </Button>
+          </div>
         </div>
         
-        {/* Participants sidebar */}
-        {showParticipants && (
-          <div className="w-80 border-l border-border p-4 overflow-y-auto">
-            <h3 className="font-medium mb-4">Participants ({participants.length})</h3>
-            <div className="space-y-3">
-              {participants.map((participant) => (
-                <div key={participant.id} className="flex items-center justify-between py-2 px-3 rounded-lg hover:bg-muted">
-                  <div className="flex items-center gap-3">
-                    <Avatar className="h-8 w-8">
-                      <AvatarImage src={participant.avatar} alt={participant.name} />
-                      <AvatarFallback className="bg-primary/10 text-primary">
-                        {participant.name.split(" ")[0][0]}
-                      </AvatarFallback>
-                    </Avatar>
-                    <span className="font-medium">{participant.name} {participant.isCurrentUser && '(You)'}</span>
-                  </div>
-                  <div className="flex items-center gap-1.5">
-                    {participant.isMuted ? (
-                      <MicOff className="h-4 w-4 text-muted-foreground" />
-                    ) : (
-                      <Mic className="h-4 w-4 text-primary" />
+        {/* Sidebar (chat and participants) - visible on larger screens or when toggled */}
+        {chatOpen && (
+          <div className="border-l h-full flex flex-col">
+            {/* Tabs */}
+            <div className="grid grid-cols-2 border-b">
+              <Button variant="ghost" className="rounded-none h-12">
+                <MessageSquare className="h-4 w-4 mr-2" />
+                Chat
+              </Button>
+              <Button variant="ghost" className="rounded-none h-12">
+                <Users className="h-4 w-4 mr-2" />
+                Participants
+              </Button>
+            </div>
+            
+            {/* Chat messages */}
+            <div className="flex-grow overflow-y-auto p-4 space-y-4">
+              {messages.length > 0 ? (
+                messages.map((msg, i) => (
+                  <div
+                    key={i}
+                    className={`flex gap-2 ${
+                      msg.sender === "You" ? "justify-end" : "justify-start"
+                    }`}
+                  >
+                    {msg.sender !== "You" && (
+                      <Avatar className="h-8 w-8">
+                        <AvatarFallback>{msg.sender[0]}</AvatarFallback>
+                      </Avatar>
                     )}
-                    {participant.hasVideo ? (
-                      <Video className="h-4 w-4 text-primary" />
-                    ) : (
-                      <VideoOff className="h-4 w-4 text-muted-foreground" />
-                    )}
+                    <Card className={`p-2 px-3 max-w-[80%] ${
+                      msg.sender === "You" ? "bg-primary text-primary-foreground" : ""
+                    }`}>
+                      {msg.sender !== "You" && (
+                        <p className="text-xs font-medium mb-1">{msg.sender}</p>
+                      )}
+                      <p className="text-sm">{msg.content}</p>
+                    </Card>
                   </div>
+                ))
+              ) : (
+                <div className="h-full flex flex-col items-center justify-center text-center text-muted-foreground">
+                  <MessageSquare className="h-8 w-8 mb-2" />
+                  <p>No messages yet</p>
+                  <p className="text-sm">Start the conversation!</p>
                 </div>
-              ))}
+              )}
+            </div>
+            
+            {/* Message input */}
+            <div className="p-3 border-t">
+              <div className="flex gap-2">
+                <Input
+                  value={message}
+                  onChange={e => setMessage(e.target.value)}
+                  placeholder="Type a message..."
+                  onKeyDown={e => e.key === "Enter" && sendMessage()}
+                />
+                <Button size="icon" onClick={sendMessage}>
+                  <Send className="h-4 w-4" />
+                </Button>
+              </div>
             </div>
           </div>
         )}
-      </div>
-      
-      {/* Call controls */}
-      <div className="py-4 px-6 border-t border-border bg-background flex items-center justify-center">
-        <div className="flex items-center gap-3">
-          <Button 
-            variant={micEnabled ? "outline" : "secondary"} 
-            size="icon"
-            className="call-control-btn"
-            onClick={() => setMicEnabled(!micEnabled)}
-            disabled={!isConnected}
-          >
-            {micEnabled ? <Mic className="h-5 w-5" /> : <MicOff className="h-5 w-5" />}
-          </Button>
-          
-          <Button 
-            variant={videoEnabled ? "outline" : "secondary"}
-            size="icon"
-            className="call-control-btn"
-            onClick={() => setVideoEnabled(!videoEnabled)}
-            disabled={!isConnected}
-          >
-            {videoEnabled ? <Video className="h-5 w-5" /> : <VideoOff className="h-5 w-5" />}
-          </Button>
-          
-          <Button 
-            variant={screenShareEnabled ? "secondary" : "outline"}
-            size="icon"
-            className="call-control-btn"
-            onClick={() => setScreenShareEnabled(!screenShareEnabled)}
-            disabled={!isConnected}
-          >
-            {screenShareEnabled ? <ScreenShareOff className="h-5 w-5" /> : <ScreenShare className="h-5 w-5" />}
-          </Button>
-          
-          <Button 
-            variant="destructive" 
-            size="icon"
-            className="call-control-btn"
-            onClick={handleEndCall}
-          >
-            <Phone className="h-5 w-5" />
-          </Button>
-        </div>
       </div>
     </div>
   );
