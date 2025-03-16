@@ -1,10 +1,10 @@
 
 import React from 'react';
 import Layout from '@/components/layout/Layout';
-import { DashboardStats } from '@/components/dashboard/DashboardStats';
-import { RecentCalls } from '@/components/dashboard/RecentCalls';
-import { ScheduledCalls } from '@/components/dashboard/ScheduledCalls';
-import { ContactsList } from '@/components/dashboard/ContactsList';
+import DashboardStats from '@/components/dashboard/DashboardStats';
+import RecentCalls from '@/components/dashboard/RecentCalls';
+import ScheduledCalls from '@/components/dashboard/ScheduledCalls';
+import ContactsList from '@/components/dashboard/ContactsList';
 
 const Index = () => {
   return (

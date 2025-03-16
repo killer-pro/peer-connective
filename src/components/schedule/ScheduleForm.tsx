@@ -18,9 +18,9 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Calendar } from '@/components/ui/calendar';
 import { format } from 'date-fns';
 import { CalendarIcon, Clock } from 'lucide-react';
-import { TimeTypeSelector } from '@/components/call/TimeTypeSelector';
-import { CallTypeSelector } from '@/components/call/CallTypeSelector';
-import { ParticipantSelector } from '@/components/call/ParticipantSelector';
+import TimeTypeSelector from '@/components/call/TimeTypeSelector';
+import CallTypeSelector from '@/components/call/CallTypeSelector';
+import ParticipantSelector from '@/components/call/ParticipantSelector';
 import { mockContacts } from './types';
 
 // Schema for form validation

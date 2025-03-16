@@ -1,6 +1,6 @@
 
 import { User } from '@/types/user';
-import { ScheduledCall as ScheduledCallBase } from '@/types/call';
+import { ScheduledCall as ScheduledCallBase, CallType, CallStatus } from '@/types/call';
 
 // Local component type for the schedule page
 export interface ScheduledCallDisplay extends Omit<ScheduledCallBase, 'participants'> {
@@ -9,6 +9,10 @@ export interface ScheduledCallDisplay extends Omit<ScheduledCallBase, 'participa
     name: string;
     avatar?: string;
   }[];
+  call_type?: CallType;
+  scheduled_time?: Date | string;
+  is_group_call?: boolean;
+  status?: CallStatus;
 }
 
 // Mock contact data

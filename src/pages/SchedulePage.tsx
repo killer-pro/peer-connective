@@ -81,7 +81,8 @@ const SchedulePage = () => {
         <div className="flex items-center justify-between">
           <h1 className="text-2xl font-semibold">Schedule</h1>
           <ScheduleForm 
-            onScheduleCall={handleScheduleCall} 
+            onSchedule={handleScheduleCall} 
+            onCancel={() => setIsScheduleCallOpen(false)}
           />
         </div>
         
