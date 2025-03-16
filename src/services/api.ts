@@ -1,131 +1,60 @@
+import axios, { AxiosInstance, AxiosRequestConfig, AxiosResponse } from 'axios';
 
-import axios, { AxiosError, AxiosRequestConfig, AxiosResponse } from 'axios';
-
-// Base API URL
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000/api';
-
-// Create axios instance with default config
-const api = axios.create({
-  baseURL: API_URL,
+// Créer une instance axios avec une configuration de base
+const apiClient: AxiosInstance = axios.create({
+  baseURL: 'http://localhost:8000/api', // Ajustez selon votre URL d'API
   headers: {
     'Content-Type': 'application/json',
   },
 });
 
-// Add request interceptor to include auth token in requests
-api.interceptors.request.use(
-  (config) => {
-    const token = localStorage.getItem('auth_tokens');
-    if (token) {
-      const parsedToken = JSON.parse(token);
-      config.headers['Authorization'] = `Bearer ${parsedToken.access}`;
-    }
-    return config;
-  },
-  (error) => Promise.reject(error)
-);
-
-// Add response interceptor to handle common errors
-api.interceptors.response.use(
-  (response) => response,
-  async (error: Error | AxiosError) => {
-    // Only handle Axios errors
-    if (!axios.isAxiosError(error)) {
+// Intercepteur pour ajouter le token d'authentification aux requêtes
+apiClient.interceptors.request.use(
+    (config) => {
+      const token = localStorage.getItem('auth_token');
+      if (token && config.headers) {
+        // Format pour Django REST Framework Token Authentication
+        config.headers.Authorization = `Token ${token}`;
+      }
+      return config;
+    },
+    (error) => {
       return Promise.reject(error);
     }
-
-    const { response } = error;
-
-    // Handle 401 Unauthorized - token expired or invalid
-    if (response?.status === 401) {
-      // Logout user if token is invalid/expired
-      localStorage.removeItem('auth_tokens');
-      window.location.href = '/auth';
-    }
-
-    return Promise.reject(error);
-  }
 );
 
-// Type checking for error handling
-const isAxiosError = (error: any): error is AxiosError => {
-  return error.isAxiosError === true;
-};
+// Intercepteur pour gérer les erreurs de réponse
+apiClient.interceptors.response.use(
+    (response) => {
+      return response.data;
+    },
+    (error) => {
+      const message = error.response?.data?.detail || error.message;
+      return Promise.reject(new Error(message));
+    }
+);
 
-// API service with typed methods
+// Service API avec méthodes pour les types de requêtes courants
 export const apiService = {
-  // GET request
-  async get<T>(url: string, config?: AxiosRequestConfig): Promise<T> {
-    try {
-      const response: AxiosResponse<T> = await api.get(url, config);
-      return response.data;
-    } catch (error) {
-      handleApiError(error);
-      throw error;
-    }
+  get: <T>(url: string, config?: AxiosRequestConfig): Promise<T> => {
+    return apiClient.get(url, config);
   },
 
-  // POST request
-  async post<T>(url: string, data?: any, config?: AxiosRequestConfig): Promise<T> {
-    try {
-      const response: AxiosResponse<T> = await api.post(url, data, config);
-      return response.data;
-    } catch (error) {
-      handleApiError(error);
-      throw error;
-    }
+  post: <T>(url: string, data?: unknown, config?: AxiosRequestConfig): Promise<T> => {
+    return apiClient.post(url, data, config);
   },
 
-  // PUT request
-  async put<T>(url: string, data?: any, config?: AxiosRequestConfig): Promise<T> {
-    try {
-      const response: AxiosResponse<T> = await api.put(url, data, config);
-      return response.data;
-    } catch (error) {
-      handleApiError(error);
-      throw error;
-    }
+  put: <T>(url: string, data?: unknown, config?: AxiosRequestConfig): Promise<T> => {
+    return apiClient.put(url, data, config);
   },
 
-  // PATCH request
-  async patch<T>(url: string, data?: any, config?: AxiosRequestConfig): Promise<T> {
-    try {
-      const response: AxiosResponse<T> = await api.patch(url, data, config);
-      return response.data;
-    } catch (error) {
-      handleApiError(error);
-      throw error;
-    }
+  patch: <T>(url: string, data?: unknown, config?: AxiosRequestConfig): Promise<T> => {
+    return apiClient.patch(url, data, config);
   },
 
-  // DELETE request
-  async delete<T>(url: string, config?: AxiosRequestConfig): Promise<T> {
-    try {
-      const response: AxiosResponse<T> = await api.delete(url, config);
-      return response.data;
-    } catch (error) {
-      handleApiError(error);
-      throw error;
-    }
-  },
-};
-
-// Error handler function
-const handleApiError = (error: unknown): void => {
-  if (isAxiosError(error)) {
-    const { response } = error;
-    
-    // Log errors to console in development
-    console.error(
-      'API Error:',
-      response?.status,
-      response?.data || error.message
-    );
-  } else if (error instanceof Error) {
-    console.error('API Error:', error.message);
-  } else {
-    console.error('Unknown API Error', error);
+  delete: <T>(url: string, config?: AxiosRequestConfig): Promise<T> => {
+    return apiClient.delete(url, config);
   }
 };
 
-export default api;
+export default apiClient;

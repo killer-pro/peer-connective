@@ -1,4 +1,3 @@
-
 import api, { apiService } from './api';
 
 interface LoginCredentials {
@@ -13,120 +12,104 @@ interface RegisterData {
   password2: string;
 }
 
+// Mise à jour de l'interface pour correspondre à la réponse de Django
 interface AuthResponse {
-  access: string;
-  refresh: string;
-  user: {
-    id: number;
-    username: string;
-    email: string;
-  };
+  token: string;
+  user_id: number;
+  username: string;
+  email: string;
 }
 
-interface RefreshResponse {
-  access: string;
-}
+const TOKEN_KEY = 'auth_token';
+const USER_INFO_KEY = 'auth_user';
 
-const TOKEN_KEY = 'auth_tokens';
-
-// Stockage et récupération des tokens en localStorage
-const saveTokens = (tokens: { access: string; refresh: string }) => {
-  localStorage.setItem(TOKEN_KEY, JSON.stringify(tokens));
+// Stockage et récupération du token en localStorage
+const saveAuth = (auth: AuthResponse) => {
+  localStorage.setItem(TOKEN_KEY, auth.token);
+  localStorage.setItem(USER_INFO_KEY, JSON.stringify({
+    id: auth.user_id,
+    username: auth.username,
+    email: auth.email
+  }));
 };
 
-const getTokens = (): { access: string | null; refresh: string | null } => {
-  const tokensStr = localStorage.getItem(TOKEN_KEY);
-  if (!tokensStr) return { access: null, refresh: null };
-  
+const getToken = (): string | null => {
+  return localStorage.getItem(TOKEN_KEY);
+};
+
+const getUserInfo = () => {
+  const userStr = localStorage.getItem(USER_INFO_KEY);
+  if (!userStr) return null;
+
   try {
-    return JSON.parse(tokensStr);
+    return JSON.parse(userStr);
   } catch (error) {
-    console.error('Failed to parse auth tokens', error);
-    return { access: null, refresh: null };
+    console.error('Failed to parse user info', error);
+    return null;
   }
 };
 
-const clearTokens = () => {
+const clearAuth = () => {
   localStorage.removeItem(TOKEN_KEY);
+  localStorage.removeItem(USER_INFO_KEY);
 };
 
 // Service d'authentification
 export const authService = {
   // Connexion
   login: async (credentials: LoginCredentials): Promise<AuthResponse> => {
-    const response = await apiService.post<AuthResponse>('/auth/login/', credentials);
-    saveTokens({ access: response.access, refresh: response.refresh });
+    const response = await apiService.post<AuthResponse>('/users/login/', credentials);
+    saveAuth(response);
     return response;
   },
-  
+
   // Inscription
   register: async (data: RegisterData): Promise<AuthResponse> => {
-    const response = await apiService.post<AuthResponse>('/auth/register/', data);
-    saveTokens({ access: response.access, refresh: response.refresh });
+    const response = await apiService.post<AuthResponse>('/users/', data);
+    saveAuth(response);
     return response;
   },
-  
+
   // Déconnexion
   logout: async (): Promise<void> => {
-    const { refresh } = getTokens();
-    if (refresh) {
-      try {
-        await apiService.post('/auth/logout/', { refresh });
-      } catch (error) {
-        console.error('Logout error', error);
-      }
-    }
-    clearTokens();
-  },
-  
-  // Rafraîchissement du token
-  refreshToken: async (): Promise<string | null> => {
-    const { refresh } = getTokens();
-    if (!refresh) return null;
-    
     try {
-      const response = await apiService.post<RefreshResponse>('/auth/token/refresh/', { refresh });
-      saveTokens({ access: response.access, refresh });
-      return response.access;
+      await apiService.post('/users/logout/', {});
     } catch (error) {
-      console.error('Token refresh error', error);
-      clearTokens();
-      return null;
+      console.error('Logout error', error);
     }
+    clearAuth();
   },
-  
+
   // Vérification de l'authentification
   isAuthenticated: (): boolean => {
-    const { access } = getTokens();
-    return !!access;
+    return !!getToken();
   },
-  
+
   // Récupération du token pour les requêtes API
-  getToken: (): string | null => {
-    const { access } = getTokens();
-    return access;
-  },
-  
+  getToken,
+
   // Récupération des informations utilisateur
   getCurrentUser: async () => {
     if (!authService.isAuthenticated()) return null;
-    return apiService.get('/auth/user/');
-  }
+    return apiService.get('/users/me/');
+  },
+
+  // Récupération des informations utilisateur depuis le stockage local
+  getUserInfo
 };
 
 // Fonction pour ajouter un intercepteur de requête avec le token
 export const withAuth = async <T>(
-  apiCall: () => Promise<T>
+    apiCall: () => Promise<T>
 ): Promise<T> => {
   try {
     return await apiCall();
   } catch (error) {
-    // Si erreur 401, tenter de rafraîchir le token et réessayer
+    // Si erreur 401, rediriger vers la page de connexion
     if (error instanceof Error && error.message.includes('401')) {
-      const newToken = await authService.refreshToken();
-      if (newToken) {
-        return await apiCall();
-      }
+      clearAuth();
+      // Rediriger vers la page de connexion ou dispatchez une action pour le faire
+      window.location.href = '/login';
     }
     throw error;
   }
