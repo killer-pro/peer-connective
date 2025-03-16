@@ -6,6 +6,10 @@ interface User {
   id: number;
   username: string;
   email: string;
+  phone_number?: string;
+  profile_image?: string;
+  online_status?: boolean;
+  last_seen?: string;
 }
 
 interface AuthContextType {
@@ -28,7 +32,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       try {
         if (authService.isAuthenticated()) {
           const currentUser = await authService.getCurrentUser();
-          setUser(currentUser);
+          setUser(currentUser as User);
         }
       } catch (error) {
         console.error('Failed to initialize auth', error);
@@ -44,7 +48,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     setIsLoading(true);
     try {
       const response = await authService.login({ username, password });
-      setUser(response.user);
+      setUser(response.user as User);
     } finally {
       setIsLoading(false);
     }
@@ -54,7 +58,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     setIsLoading(true);
     try {
       const response = await authService.register({ username, email, password, password2 });
-      setUser(response.user);
+      setUser(response.user as User);
     } finally {
       setIsLoading(false);
     }

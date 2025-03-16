@@ -111,3 +111,12 @@ export const useCallWebSocket = (callId: string, options: Omit<UseWebSocketOptio
   
   return useWebSocket({ ...options, url: wsUrl });
 };
+
+// Hook pour la signalisation WebRTC
+export const useSignalingWebSocket = (callId: string, options: Omit<UseWebSocketOptions, 'url'> = {}) => {
+  const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+  const wsHost = import.meta.env.VITE_WS_HOST || window.location.host;
+  const wsUrl = `${wsProtocol}//${wsHost}/ws/signaling/${callId}/`;
+  
+  return useWebSocket({ ...options, url: wsUrl });
+};
