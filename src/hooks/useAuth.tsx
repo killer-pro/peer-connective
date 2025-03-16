@@ -25,11 +25,15 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  // Ajoutez un état séparé pour l'authentification
+  const [isAuthenticated, setIsAuthenticated] = useState(authService.isAuthenticated());
 
   useEffect(() => {
     const initAuth = async () => {
       try {
         if (authService.isAuthenticated()) {
+          setIsAuthenticated(true); // Mettez à jour l'état d'authentification
+
           // Récupération immédiate des informations utilisateur stockées localement
           const storedUser = authService.getUserInfo();
           if (storedUser) {
@@ -42,11 +46,20 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             setUser(currentUser as User);
           } catch (error) {
             console.error('Failed to fetch current user data', error);
-            // En cas d'échec, on garde quand même les données stockées localement
+            // En cas d'échec, vérifiez si nous devons nous déconnecter
+            if (error instanceof Error && error.message.includes('401')) {
+              setIsAuthenticated(false);
+              setUser(null);
+            }
           }
+        } else {
+          setIsAuthenticated(false);
+          setUser(null);
         }
       } catch (error) {
         console.error('Failed to initialize auth', error);
+        setIsAuthenticated(false);
+        setUser(null);
       } finally {
         setIsLoading(false);
       }
@@ -66,6 +79,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         email: response.email
       };
       setUser(userData);
+      setIsAuthenticated(true); // Mettez à jour l'état d'authentification
     } finally {
       setIsLoading(false);
     }
@@ -82,6 +96,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         email: response.email
       };
       setUser(userData);
+      setIsAuthenticated(true); // Mettez à jour l'état d'authentification
     } finally {
       setIsLoading(false);
     }
@@ -92,6 +107,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     try {
       await authService.logout();
       setUser(null);
+      setIsAuthenticated(false); // Mettez à jour l'état d'authentification
     } finally {
       setIsLoading(false);
     }
@@ -100,7 +116,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   return (
       <AuthContext.Provider value={{
         user,
-        isAuthenticated: !!user,
+        isAuthenticated, // Utilisez l'état séparé
         isLoading,
         login,
         register,

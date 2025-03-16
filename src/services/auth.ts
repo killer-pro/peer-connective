@@ -94,6 +94,11 @@ export const authService = {
     return apiService.get('/users/me/');
   },
 
+  getUsersList: async () => {
+    if (!authService.isAuthenticated()) return null;
+    return apiService.get('/users/users/');
+  },
+
   // Récupération des informations utilisateur depuis le stockage local
   getUserInfo
 };

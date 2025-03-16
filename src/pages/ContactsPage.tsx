@@ -51,9 +51,11 @@ const ContactsPage = () => {
     const fetchAvailableUsers = async () => {
       try {
         const users = await contactsService.getAvailableUsers();
-        setAvailableUsers(users);
+        console.log("Available users data:", users);
+        setAvailableUsers(Array.isArray(users) ? users : []);
       } catch (error) {
         console.error("Error fetching available users:", error);
+        setAvailableUsers([]);
       }
     };
 
@@ -225,48 +227,48 @@ const ContactsPage = () => {
           </TabsList>
 
           <TabsContent value="all" className="mt-0">
-            <ContactsList 
-              contacts={filteredContacts} 
-              isLoading={isLoading} 
-              onContactAction={handleContactAction} 
+            <ContactsList
+              contacts={filteredContacts}
+              isLoading={isLoading}
+              onContactAction={handleContactAction}
             />
           </TabsContent>
 
           <TabsContent value="favorites" className="mt-0">
-            <ContactsList 
-              contacts={filteredContacts} 
-              isLoading={isLoading} 
-              onContactAction={handleContactAction} 
+            <ContactsList
+              contacts={filteredContacts}
+              isLoading={isLoading}
+              onContactAction={handleContactAction}
               filter={(contact) => contact.favorite}
             />
           </TabsContent>
 
           <TabsContent value="online" className="mt-0">
-            <ContactsList 
-              contacts={filteredContacts} 
-              isLoading={isLoading} 
-              onContactAction={handleContactAction} 
+            <ContactsList
+              contacts={filteredContacts}
+              isLoading={isLoading}
+              onContactAction={handleContactAction}
               filter={(contact) => contact.online}
             />
           </TabsContent>
         </Tabs>
 
         {/* Contact Detail Dialog */}
-        <ContactDetail 
-          contact={selectedContact} 
-          onClose={() => setSelectedContact(null)} 
-          onAction={handleContactAction} 
+        <ContactDetail
+          contact={selectedContact}
+          onClose={() => setSelectedContact(null)}
+          onAction={handleContactAction}
         />
 
         {/* Add Contact Dialog */}
-        <AddContactDialog 
-          open={isAddContactOpen} 
-          onOpenChange={setIsAddContactOpen} 
-          onAddContact={handleAddContact} 
-          newContact={newContact} 
-          setNewContact={setNewContact} 
-          availableUsers={availableUsers} 
-          isLoading={isLoading} 
+        <AddContactDialog
+          open={isAddContactOpen}
+          onOpenChange={setIsAddContactOpen}
+          onAddContact={handleAddContact}
+          newContact={newContact}
+          setNewContact={setNewContact}
+          availableUsers={availableUsers}
+          isLoading={isLoading}
         />
       </div>
     </Layout>
