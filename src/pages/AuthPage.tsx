@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -8,6 +7,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/components/ui/use-toast";
+import { authService } from "@/services/auth";
 
 const AuthPage = () => {
   const navigate = useNavigate();
@@ -16,28 +16,41 @@ const AuthPage = () => {
   // États du formulaire de connexion
   const [loginEmail, setLoginEmail] = useState("");
   const [loginPassword, setLoginPassword] = useState("");
+  const [isLoggingIn, setIsLoggingIn] = useState(false);
   
   // États du formulaire d'inscription
   const [registerName, setRegisterName] = useState("");
   const [registerEmail, setRegisterEmail] = useState("");
   const [registerPassword, setRegisterPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [isRegistering, setIsRegistering] = useState(false);
   
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
+    setIsLoggingIn(true);
     
-    // Dans une application réelle, ceci enverrait les identifiants à une API
-    // Pour l'instant, nous simulerons une connexion réussie
-    toast({
-      title: "Connexion réussie",
-      description: "Bienvenue sur Peer Connect !",
-    });
-    
-    // Redirection vers le tableau de bord
-    navigate("/");
+    try {
+      await authService.login({
+        username: loginEmail, // Django peut utiliser soit username soit email
+        password: loginPassword
+      });
+      
+      toast({
+        title: "Connexion réussie",
+        description: "Bienvenue sur Peer Connect !",
+      });
+      
+      // Redirection vers le tableau de bord
+      navigate("/");
+    } catch (error) {
+      console.error("Login error:", error);
+      // L'erreur a déjà été gérée par le service api
+    } finally {
+      setIsLoggingIn(false);
+    }
   };
   
-  const handleRegister = (e: React.FormEvent) => {
+  const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
     
     // Validation simple du mot de passe
@@ -50,14 +63,29 @@ const AuthPage = () => {
       return;
     }
     
-    // Dans une application réelle, ceci enverrait les données d'inscription à une API
-    toast({
-      title: "Compte créé",
-      description: "Votre compte a été créé avec succès !",
-    });
+    setIsRegistering(true);
     
-    // Redirection vers le tableau de bord
-    navigate("/");
+    try {
+      await authService.register({
+        username: registerName,
+        email: registerEmail,
+        password: registerPassword,
+        password2: confirmPassword
+      });
+      
+      toast({
+        title: "Compte créé",
+        description: "Votre compte a été créé avec succès !",
+      });
+      
+      // Redirection vers le tableau de bord
+      navigate("/");
+    } catch (error) {
+      console.error("Registration error:", error);
+      // L'erreur a déjà été gérée par le service api
+    } finally {
+      setIsRegistering(false);
+    }
   };
   
   return (
@@ -121,7 +149,9 @@ const AuthPage = () => {
                   </div>
                 </CardContent>
                 <CardFooter>
-                  <Button type="submit" className="w-full">Se connecter</Button>
+                  <Button type="submit" className="w-full" disabled={isLoggingIn}>
+                    {isLoggingIn ? "Connexion en cours..." : "Se connecter"}
+                  </Button>
                 </CardFooter>
               </form>
             </Card>
@@ -189,7 +219,9 @@ const AuthPage = () => {
                   </div>
                 </CardContent>
                 <CardFooter>
-                  <Button type="submit" className="w-full">S'inscrire</Button>
+                  <Button type="submit" className="w-full" disabled={isRegistering}>
+                    {isRegistering ? "Inscription en cours..." : "S'inscrire"}
+                  </Button>
                 </CardFooter>
               </form>
             </Card>

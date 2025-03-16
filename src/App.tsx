@@ -3,7 +3,8 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { AuthProvider } from "@/hooks/useAuth";
 import Index from "./pages/Index";
 import CallPage from "./pages/CallPage";
 import CallsPage from "./pages/CallsPage";
@@ -16,30 +17,52 @@ import RecordingsPage from "./pages/RecordingsPage";
 import AuthPage from "./pages/AuthPage";
 import NotFound from "./pages/NotFound";
 
-const queryClient = new QueryClient();
+// Configuration pour gérer les erreurs de requête dans React Query
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      retry: 1,
+      refetchOnWindowFocus: false,
+      staleTime: 5 * 60 * 1000, // 5 minutes
+    },
+  },
+});
+
+// Composant pour protéger les routes authentifiées
+const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
+  // Dans une implémentation réelle, vérifier l'authentification via useAuth
+  const isAuthenticated = authService.isAuthenticated();
+  return isAuthenticated ? <>{children}</> : <Navigate to="/auth" replace />;
+};
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
-    <TooltipProvider>
-      <Toaster />
-      <Sonner />
-      <BrowserRouter>
-        <Routes>
-          <Route path="/" element={<Index />} />
-          <Route path="/call" element={<CallPage />} />
-          <Route path="/calls" element={<CallsPage />} />
-          <Route path="/group-call" element={<CreateGroupCallPage />} />
-          <Route path="/contacts" element={<ContactsPage />} />
-          <Route path="/schedule" element={<SchedulePage />} />
-          <Route path="/history" element={<HistoryPage />} />
-          <Route path="/profile" element={<ProfilePage />} />
-          <Route path="/recordings" element={<RecordingsPage />} />
-          <Route path="/auth" element={<AuthPage />} />
-          {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-          <Route path="*" element={<NotFound />} />
-        </Routes>
-      </BrowserRouter>
-    </TooltipProvider>
+    <AuthProvider>
+      <TooltipProvider>
+        <Toaster />
+        <Sonner />
+        <BrowserRouter>
+          <Routes>
+            {/* Routes publiques */}
+            <Route path="/auth" element={<AuthPage />} />
+            
+            {/* Routes protégées */}
+            <Route path="/" element={<ProtectedRoute><Index /></ProtectedRoute>} />
+            <Route path="/call" element={<ProtectedRoute><CallPage /></ProtectedRoute>} />
+            <Route path="/calls" element={<ProtectedRoute><CallsPage /></ProtectedRoute>} />
+            <Route path="/group-call" element={<ProtectedRoute><CreateGroupCallPage /></ProtectedRoute>} />
+            <Route path="/contacts" element={<ProtectedRoute><ContactsPage /></ProtectedRoute>} />
+            <Route path="/schedule" element={<ProtectedRoute><SchedulePage /></ProtectedRoute>} />
+            <Route path="/history" element={<ProtectedRoute><HistoryPage /></ProtectedRoute>} />
+            <Route path="/profile" element={<ProtectedRoute><ProfilePage /></ProtectedRoute>} />
+            <Route path="/recordings" element={<ProtectedRoute><RecordingsPage /></ProtectedRoute>} />
+            
+            {/* Route de secours */}
+            <Route path="*" element={<NotFound />} />
+          </Routes>
+        </BrowserRouter>
+      </TooltipProvider>
+    </AuthProvider>
   </QueryClientProvider>
 );
 
