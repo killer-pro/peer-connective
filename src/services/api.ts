@@ -52,9 +52,14 @@ export const apiService = {
     return apiClient.patch(url, data, config);
   },
 
-  delete: <T>(url: string, config?: AxiosRequestConfig): Promise<T> => {
-    return apiClient.delete(url, config);
-  }
+    delete: <T>(url: string, config?: AxiosRequestConfig): Promise<T> => {
+        return apiClient.delete(url, config);
+    },
+    patchForm: <T>(url: string, config?: FormData): Promise<T> => {
+        return apiClient.patchForm(url, config);
+    },
+
+
 };
 
 export default apiClient;
