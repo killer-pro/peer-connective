@@ -30,21 +30,21 @@ export const useWebSocket = ({
   const [isConnected, setIsConnected] = useState(false);
   const wsRef = useRef<WebSocketService | null>(null);
   
-  // Fonction pour se connecter
+  // Function to connect
   const connect = useCallback(() => {
     if (wsRef.current) {
       wsRef.current.connect();
     }
   }, []);
   
-  // Fonction pour se déconnecter
+  // Function to disconnect
   const disconnect = useCallback(() => {
     if (wsRef.current) {
       wsRef.current.disconnect();
     }
   }, []);
   
-  // Fonction pour envoyer un message
+  // Function to send a message
   const send = useCallback((data: unknown) => {
     if (wsRef.current) {
       return wsRef.current.send(data);
@@ -52,7 +52,7 @@ export const useWebSocket = ({
     return false;
   }, []);
   
-  // Fonction pour s'abonner à un type de message spécifique
+  // Function to subscribe to a specific message type
   const subscribe = useCallback((type: string, handler: WebSocketMessageHandler) => {
     if (wsRef.current) {
       return wsRef.current.subscribe(type, handler);
@@ -60,7 +60,7 @@ export const useWebSocket = ({
     return () => {};
   }, []);
   
-  // Effet pour gérer la connexion WebSocket
+  // Effect to manage WebSocket connection
   useEffect(() => {
     const handleOpen = () => {
       setIsConnected(true);
@@ -92,7 +92,7 @@ export const useWebSocket = ({
         wsRef.current = null;
       }
     };
-  }, [url, ...dependencies]);
+  }, [url, onOpen, onClose, onError, onMessage, autoConnect, reconnect, reconnectInterval, maxReconnectAttempts, ...dependencies]);
   
   return {
     isConnected,
@@ -103,7 +103,7 @@ export const useWebSocket = ({
   };
 };
 
-// Hook pour les appels vidéo
+// Hook for video call WebSockets
 export const useCallWebSocket = (callId: string, options: Omit<UseWebSocketOptions, 'url'> = {}) => {
   const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
   const wsHost = import.meta.env.VITE_WS_HOST || window.location.host;
@@ -112,7 +112,7 @@ export const useCallWebSocket = (callId: string, options: Omit<UseWebSocketOptio
   return useWebSocket({ ...options, url: wsUrl });
 };
 
-// Hook pour la signalisation WebRTC
+// Hook for WebRTC signaling WebSockets
 export const useSignalingWebSocket = (callId: string, options: Omit<UseWebSocketOptions, 'url'> = {}) => {
   const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
   const wsHost = import.meta.env.VITE_WS_HOST || window.location.host;

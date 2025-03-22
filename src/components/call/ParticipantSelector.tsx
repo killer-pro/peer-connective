@@ -8,9 +8,10 @@ import { Input } from "@/components/ui/input";
 export interface ParticipantSelectorProps {
   selectedIds: string[];
   onChange: (selectedIds: string[]) => void;
+  contacts?: Contact[];
 }
 
-// Mock contacts for the ParticipantSelector
+// Mock contacts for the ParticipantSelector when contacts are not provided
 const mockContacts: Contact[] = [
   {
     id: "1",
@@ -49,11 +50,15 @@ const mockContacts: Contact[] = [
   }
 ];
 
-const ParticipantSelector: React.FC<ParticipantSelectorProps> = ({ selectedIds, onChange }) => {
+const ParticipantSelector: React.FC<ParticipantSelectorProps> = ({ 
+  selectedIds, 
+  onChange,
+  contacts = mockContacts 
+}) => {
   const [searchTerm, setSearchTerm] = useState("");
   
   // Filter contacts based on search term
-  const filteredContacts = mockContacts.filter(
+  const filteredContacts = contacts.filter(
     contact => 
       contact.username.toLowerCase().includes(searchTerm.toLowerCase()) || 
       contact.email.toLowerCase().includes(searchTerm.toLowerCase())
@@ -79,7 +84,7 @@ const ParticipantSelector: React.FC<ParticipantSelectorProps> = ({ selectedIds, 
       {selectedIds.length > 0 && (
         <div className="flex flex-wrap gap-2 mb-2">
           {selectedIds.map(id => {
-            const contact = mockContacts.find(c => c.id === id);
+            const contact = contacts.find(c => c.id === id);
             if (!contact) return null;
             
             return (

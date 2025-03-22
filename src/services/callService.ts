@@ -1,9 +1,10 @@
+
 import { apiService } from './api';
 import { userService } from './userService';
 
-// Types basés sur les modèles Django
+// Types based on Django models
 export interface Contact {
-    id: string; // Conservé comme string pour être compatible avec CallsPage.tsx
+    id: string; // Kept as string for compatibility with CallsPage.tsx
     username: string;
     avatar?: string;
     email: string;
@@ -58,24 +59,24 @@ export interface CreateCallData {
 }
 
 export const CallService = {
-    // Récupérer tous les appels
+    // Fetching calls
     getAllCalls: async (): Promise<CallData[]> => {
         return apiService.get<CallData[]>('/calls/');
     },
 
-    // Récupérer les appels récents (complétés, manqués, annulés)
+    // Get recent calls (completed, missed, cancelled)
     getCallHistory: async (): Promise<CallData[]> => {
-        // Utilisation de l'endpoint dédié pour l'historique
+        // Using the dedicated endpoint for history
         return apiService.get<CallData[]>('/calls/history/');
     },
 
-    // Récupérer les appels planifiés
+    // Get scheduled calls
     getScheduledCalls: async (): Promise<CallData[]> => {
-        // Utilisation de l'endpoint dédié pour les appels planifiés
+        // Using the dedicated endpoint for scheduled calls
         return apiService.get<CallData[]>('/calls/scheduled/');
     },
 
-    // Démarrer un nouvel appel
+    // Start a new call
     startCall: async (data: CreateCallData): Promise<CallData> => {
         const newCall = await apiService.post<CallData>('/calls/', {
             initiator: data.initiator,
@@ -90,51 +91,55 @@ export const CallService = {
             recording_path: data.recording_path
         });
 
-        // Démarrer l'appel créé
-        return apiService.post<CallData>(`/calls/${newCall.id}/start/`, {});
+        // Start the created call if it's immediate
+        if (data.status === 'in_progress') {
+            return apiService.post<CallData>(`/calls/${newCall.id}/start/`, {});
+        }
+        
+        return newCall;
     },
 
-    // Rejoindre un appel
+    // Join a call
     joinCall: async (callId: number): Promise<CallData> => {
         return apiService.post<CallData>(`/calls/${callId}/join/`, {});
     },
 
-    // Quitter un appel
+    // Leave a call
     leaveCall: async (callId: number): Promise<CallData> => {
         return apiService.post<CallData>(`/calls/${callId}/leave/`, {});
     },
 
-    // Terminer un appel
+    // End a call
     endCall: async (callId: number): Promise<CallData> => {
         return apiService.post<CallData>(`/calls/${callId}/end/`, {});
     },
 
-    // Récupérer les détails d'un appel
+    // Get call details
     getCallDetails: async (callId: number): Promise<CallData> => {
         return apiService.get<CallData>(`/calls/${callId}/`);
     },
 
-    // Récupérer les contacts (utilisateurs)
+    // Get contacts (users)
     getContacts: async (): Promise<Contact[]> => {
-        const users = await apiService.get<any[]>('users/users/');
+        const users = await apiService.get<any[]>('/users/users/');
 
-        // Convertir le format de l'API en format attendu par CallsPage
+        // Convert API format to expected format for CallsPage
         return users.map(user => ({
-            id: user.id.toString(), // Conversion en string pour compatibilité
+            id: user.id.toString(), // Convert to string for compatibility
             username: user.username,
             avatar: user.profile_image,
             email: user.email,
-            status: user.online_status ? 'online' : 'offline', // Conversion simple du statut
+            status: user.online_status ? 'online' : 'offline', // Simple status conversion
         }));
     },
 
-    // Récupérer les contacts favoris
+    // Get favorite contacts
     getFavoriteContacts: async (): Promise<Contact[]> => {
         const favorites = await apiService.get<any[]>('/contacts/me/favorites/');
 
-        // Convertir le format de l'API en format attendu par CallsPage
+        // Convert API format to expected format for CallsPage
         return favorites.map(contact => ({
-            id: contact.contact_user.toString(), // Conversion en string pour compatibilité
+            id: contact.contact_user.toString(), // Convert to string for compatibility
             username: contact.contact_user_details.username,
             avatar: contact.contact_user_details.profile_image,
             email: contact.contact_user_details.email,
@@ -142,25 +147,24 @@ export const CallService = {
         }));
     },
 
-    // Ajouter un message à un appel
+    // Add a message to a call
     addCallMessage: async (callId: number, content: string): Promise<unknown> => {
-        return apiService.post<unknown>(`/calls/messages/`, {
-            call: callId,
+        return apiService.post<unknown>(`/calls/${callId}/messages/`, {
             content
         });
     },
 
-    // Récupérer les messages d'un appel
+    // Get messages for a call
     getCallMessages: async (callId: number): Promise<unknown[]> => {
-        return apiService.get<unknown[]>(`/calls/messages/?call=${callId}`);
+        return apiService.get<unknown[]>(`/calls/${callId}/messages/`);
     },
 
-    // Récupérer l'utilisateur actuel
+    // Get current user
     getCurrentUser: async () => {
         return userService.getUserProfile();
     },
 
-    // Formater la durée en HH:MM:SS
+    // Format duration in HH:MM:SS
     formatDuration: (seconds?: number): string => {
         if (!seconds) return '00:00';
 
@@ -175,7 +179,7 @@ export const CallService = {
         return `${minutes.toString().padStart(2, '0')}:${remainingSeconds.toString().padStart(2, '0')}`;
     },
 
-    // Formater la date pour l'affichage
+    // Format date for display
     formatDate: (dateString?: string): string => {
         if (!dateString) return '';
 

@@ -22,6 +22,8 @@ export const useIncomingCalls = () => {
   });
   
   function handleIncomingCall(data: any) {
+    console.log('Incoming call data received:', data);
+    
     if (data.type === 'incoming_call') {
       const call = data.call as CallData;
       setIncomingCall(call);
@@ -44,9 +46,24 @@ export const useIncomingCalls = () => {
   };
   
   const rejectCall = (callId: number) => {
-    // You could add API call to reject the call
+    // Send API call to reject the call
+    fetch(`/api/calls/${callId}/reject/`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Token ${localStorage.getItem('auth_token')}`
+      }
+    }).catch(error => {
+      console.error('Error rejecting call:', error);
+    });
+    
     setIncomingCall(null);
   };
+  
+  useEffect(() => {
+    // Log connection status
+    console.log('Incoming calls WebSocket connected:', isConnected);
+  }, [isConnected]);
   
   return {
     incomingCall,

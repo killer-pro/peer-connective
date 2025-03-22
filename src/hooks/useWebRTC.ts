@@ -38,16 +38,21 @@ export const useWebRTC = ({
   
   // Polling interval for signaling messages when WebSocket is not available
   const pollingIntervalRef = useRef<number | null>(null);
+  const currentUserId = localStorage.getItem('userId');
   
   // Use WebSocket for signaling if available
-  const { isConnected: wsConnected, send: wsSend } = useSignalingWebSocket(callId, {
-    onMessage: handleSignalingMessage,
+  const { isConnected: wsConnected, send: wsSend, subscribe } = useSignalingWebSocket(callId, {
+    onMessage: (data) => {
+      console.log('WebSocket message received:', data);
+      handleSignalingMessage(data);
+    },
   });
   
   // Initialize WebRTC
   const initializeCall = useCallback(async (isInitiatingCall = false) => {
     try {
       setIsInitiator(isInitiatingCall);
+      console.log('Initializing call as initiator:', isInitiatingCall);
       
       // Create peer connection
       const pc = new RTCPeerConnection(PEER_CONNECTION_CONFIG);
@@ -56,7 +61,10 @@ export const useWebRTC = ({
       // Setup event handlers
       pc.onicecandidate = handleIceCandidate;
       pc.ontrack = handleTrack;
-      pc.oniceconnectionstatechange = handleIceConnectionStateChange;
+      pc.oniceconnectionstatechange = () => {
+        console.log('ICE connection state:', pc.iceConnectionState);
+        handleIceConnectionStateChange();
+      };
       
       // Get user media
       const stream = await navigator.mediaDevices.getUserMedia({
@@ -65,6 +73,8 @@ export const useWebRTC = ({
       });
       
       setLocalStream(stream);
+      setMicActive(true);
+      setVideoActive(true);
       
       // Add tracks to peer connection
       stream.getTracks().forEach(track => {
@@ -78,6 +88,7 @@ export const useWebRTC = ({
       
       // Create data channel if initiating the call
       if (isInitiatingCall) {
+        console.log('Creating data channel');
         dataChannel.current = pc.createDataChannel('chat');
         setupDataChannel(dataChannel.current);
         
@@ -85,15 +96,21 @@ export const useWebRTC = ({
         const offer = await pc.createOffer();
         await pc.setLocalDescription(offer);
         
-        sendSignalingMessage({
-          type: 'offer',
-          call: parseInt(callId),
-          receiver: 1, // This should be the actual receiver ID
-          sdp: pc.localDescription,
-        });
+        const receiverId = getReceiverId();
+        if (receiverId) {
+          sendSignalingMessage({
+            type: 'offer',
+            call: parseInt(callId),
+            receiver: receiverId,
+            sdp: pc.localDescription,
+          });
+        } else {
+          console.error('No receiver ID available');
+        }
       } else {
         // Set up data channel event for the answering side
         pc.ondatachannel = (event) => {
+          console.log('Data channel received');
           dataChannel.current = event.channel;
           setupDataChannel(dataChannel.current);
         };
@@ -101,6 +118,7 @@ export const useWebRTC = ({
       
       // Start polling for signaling messages if WebSocket is not connected
       if (!wsConnected) {
+        console.log('WebSocket not connected, starting polling');
         startPollingMessages();
       }
       
@@ -111,6 +129,13 @@ export const useWebRTC = ({
       return false;
     }
   }, [callId, localVideoRef, wsConnected]);
+  
+  // Helper to get the receiver ID (the other participant in the call)
+  const getReceiverId = () => {
+    // This would come from your call data in a real implementation
+    // For now, we're just using a hardcoded value or the call ID
+    return parseInt(callId) || 1;
+  };
   
   // Handle incoming signaling messages (from WebSocket or polling)
   function handleSignalingMessage(data: any) {
@@ -123,28 +148,33 @@ export const useWebRTC = ({
       
       if (data.type === 'offer' && !isInitiator) {
         // Handle offer
+        console.log('Processing offer');
         pc.setRemoteDescription(new RTCSessionDescription(data.sdp))
           .then(() => pc.createAnswer())
           .then(answer => pc.setLocalDescription(answer))
           .then(() => {
+            const receiverId = data.sender;
             sendSignalingMessage({
               type: 'answer',
               call: parseInt(callId),
-              receiver: data.sender,
+              receiver: receiverId,
               sdp: pc.localDescription,
             });
           })
           .catch(error => console.error('Error handling offer:', error));
       } else if (data.type === 'answer' && isInitiator) {
         // Handle answer
+        console.log('Processing answer');
         pc.setRemoteDescription(new RTCSessionDescription(data.sdp))
           .catch(error => console.error('Error handling answer:', error));
       } else if (data.type === 'ice-candidate') {
         // Handle ICE candidate
+        console.log('Processing ICE candidate');
         pc.addIceCandidate(new RTCIceCandidate(data.candidate))
           .catch(error => console.error('Error adding ice candidate:', error));
       } else if (data.type === 'incoming_call') {
         // Handle incoming call notification
+        console.log('Incoming call notification received');
         toast.info(`Incoming call from ${data.call.initiator_details.username}`, {
           action: {
             label: 'Answer',
@@ -161,10 +191,12 @@ export const useWebRTC = ({
   // Handle ICE candidates
   function handleIceCandidate(event: RTCPeerConnectionIceEvent) {
     if (event.candidate) {
+      console.log('New ICE candidate', event.candidate);
+      const receiverId = getReceiverId();
       sendSignalingMessage({
         type: 'ice-candidate',
         call: parseInt(callId),
-        receiver: isInitiator ? 1 : 2, // This should be the actual receiver ID
+        receiver: receiverId,
         candidate: event.candidate,
       });
     }
@@ -172,6 +204,7 @@ export const useWebRTC = ({
   
   // Handle incoming tracks
   function handleTrack(event: RTCTrackEvent) {
+    console.log('Track received', event.streams[0]);
     setRemoteStream(event.streams[0]);
     
     if (remoteVideoRef.current && event.streams[0]) {
@@ -185,11 +218,13 @@ export const useWebRTC = ({
   function handleIceConnectionStateChange() {
     if (!peerConnection.current) return;
     
-    console.log('ICE connection state:', peerConnection.current.iceConnectionState);
+    const state = peerConnection.current.iceConnectionState;
+    console.log('ICE connection state:', state);
     
-    if (peerConnection.current.iceConnectionState === 'disconnected' || 
-        peerConnection.current.iceConnectionState === 'failed' ||
-        peerConnection.current.iceConnectionState === 'closed') {
+    if (state === 'connected' || state === 'completed') {
+      setIsConnected(true);
+      if (onCallConnected) onCallConnected();
+    } else if (state === 'disconnected' || state === 'failed' || state === 'closed') {
       setIsConnected(false);
       if (onCallEnded) onCallEnded();
     }
@@ -204,7 +239,6 @@ export const useWebRTC = ({
     channel.onmessage = (event) => {
       try {
         const message = JSON.parse(event.data);
-        // Handle the message (could emit an event or call a callback)
         console.log('Received message:', message);
       } catch (error) {
         console.error('Error parsing message:', error);
@@ -222,13 +256,16 @@ export const useWebRTC = ({
     
     // Try to send via WebSocket first
     if (wsConnected) {
+      console.log('Sending via WebSocket');
       wsSend(message);
       return;
     }
     
     // Fall back to REST API
-    const endpoint = `/api/signaling/${message.type.replace('ice-candidate', 'ice-candidate')}/`;
+    console.log('Sending via REST API');
+    const endpoint = `/api/signaling/${message.type}/`;
     axios.post(endpoint, message)
+      .then(() => console.log(`${message.type} sent successfully`))
       .catch(error => console.error(`Error sending ${message.type}:`, error));
   }, [wsConnected, wsSend]);
   
@@ -238,6 +275,7 @@ export const useWebRTC = ({
     
     const pollMessages = async () => {
       try {
+        console.log(`Polling for messages for call ${callId}`);
         const response = await axios.get(`/api/signaling/poll/${callId}/`);
         const messages = response.data;
         
@@ -337,6 +375,21 @@ export const useWebRTC = ({
       endCall();
     };
   }, [endCall]);
+  
+  // Subscribe to WebSocket messages
+  useEffect(() => {
+    if (wsConnected) {
+      const unsubOffer = subscribe('offer', handleSignalingMessage);
+      const unsubAnswer = subscribe('answer', handleSignalingMessage);
+      const unsubIceCandidate = subscribe('ice-candidate', handleSignalingMessage);
+      
+      return () => {
+        unsubOffer();
+        unsubAnswer();
+        unsubIceCandidate();
+      };
+    }
+  }, [wsConnected, subscribe]);
   
   return {
     isConnected,
