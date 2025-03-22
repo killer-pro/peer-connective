@@ -43,12 +43,16 @@ export interface CallData {
 }
 
 export interface CreateCallData {
+    initiator: number;
     call_type: 'audio' | 'video';
     is_group_call: boolean;
     title?: string;
     participants: number[];
     status?: 'planned' | 'in_progress';
     scheduled_time?: string;
+    start_time?: string;
+    end_time?: string;
+    recording_path?: string;
 }
 
 export const CallService = {
@@ -71,13 +75,17 @@ export const CallService = {
 
     // Démarrer un nouvel appel
     startCall: async (data: CreateCallData): Promise<CallData> => {
-        // Nous devons d'abord créer l'appel puis le démarrer
         const newCall = await apiService.post<CallData>('/calls/', {
+            initiator: data.initiator,
             call_type: data.call_type,
             is_group_call: data.is_group_call,
             title: data.title,
             participants: data.participants,
-            status: 'planned'
+            status: data.status || 'planned',
+            scheduled_time: data.scheduled_time,
+            start_time: data.start_time,
+            end_time: data.end_time,
+            recording_path: data.recording_path
         });
 
         // Démarrer l'appel créé

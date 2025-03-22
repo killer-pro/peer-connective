@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Search, Phone, Video, Plus, Star, MoreVertical, Loader2, Clock, Calendar } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import CallService, { Contact, CallData } from "@/services/callService";
+import {UserProfile, userService} from "@/services/userService.ts";
 
 // Interface pour représenter un appel avec détails
 interface DetailedCallData extends CallData {
@@ -67,7 +68,14 @@ const CallsPage = () => {
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState("all");
   const navigate = useNavigate();
-
+  const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
+  useEffect(() => {
+    const fetchProfile = async () => {
+      const profile = await userService.getUserProfile();
+      setUserProfile(profile);
+    };
+    fetchProfile();
+  }, []);
   // Charger les données
   useEffect(() => {
     const fetchData = async () => {
@@ -224,9 +232,12 @@ const CallsPage = () => {
     try {
       // Créer un nouvel appel
       const callData = await CallService.startCall({
+        initiator:userProfile.id,
         call_type: callType,
         is_group_call: false,
-        participants: [parseInt(contactId)]
+        participants: [parseInt(contactId)],
+        start_time: new Date().toISOString(),
+        status: "in_progress",
       });
 
       // Rediriger vers la page d'appel avec l'ID de l'appel
