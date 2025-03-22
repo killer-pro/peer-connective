@@ -16,6 +16,7 @@ import ProfilePage from "./pages/ProfilePage";
 import RecordingsPage from "./pages/RecordingsPage";
 import AuthPage from "./pages/AuthPage";
 import NotFound from "./pages/NotFound";
+import IncomingCallHandler from "./components/calls/IncomingCallHandler";
 
 // Configuration pour gérer les erreurs de requête dans React Query
 const queryClient = new QueryClient({
@@ -34,7 +35,12 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   if (isLoading) {
     return <div>Loading...</div>;
   }
-  return isAuthenticated ? <>{children}</> : <Navigate to="/auth" replace />;
+  return isAuthenticated ? (
+    <>
+      <IncomingCallHandler />
+      {children}
+    </>
+  ) : <Navigate to="/auth" replace />;
 };
 
 const App = () => (
@@ -50,7 +56,7 @@ const App = () => (
             
             {/* Routes protégées */}
             <Route path="/" element={<ProtectedRoute><Index /></ProtectedRoute>} />
-            <Route path="/call" element={<ProtectedRoute><CallPage /></ProtectedRoute>} />
+            <Route path="/call/:callId?" element={<ProtectedRoute><CallPage /></ProtectedRoute>} />
             <Route path="/calls" element={<ProtectedRoute><CallsPage /></ProtectedRoute>} />
             <Route path="/group-call" element={<ProtectedRoute><CreateGroupCallPage /></ProtectedRoute>} />
             <Route path="/contacts" element={<ProtectedRoute><ContactsPage /></ProtectedRoute>} />

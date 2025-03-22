@@ -1,5 +1,4 @@
 
-// Fix for the redeclaration of participants variable
 import { useEffect, useRef, useState } from "react";
 import { useNavigate, useParams, useLocation } from "react-router-dom";
 import {
@@ -29,28 +28,20 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
-
-const PEER_CONNECTION_CONFIG = {
-  iceServers: [
-    { urls: "stun:stun.l.google.com:19302" },
-    { urls: "stun:stun1.l.google.com:19302" },
-  ],
-};
+import { useWebRTC } from "@/hooks/useWebRTC";
+import CallService from "@/services/callService";
+import { toast } from "sonner";
 
 const CallPage = () => {
   const navigate = useNavigate();
-  const { toast } = useToast();
+  const { toast: uiToast } = useToast();
   const { callId } = useParams();
   const location = useLocation();
   const localVideoRef = useRef<HTMLVideoElement>(null);
   const remoteVideoRef = useRef<HTMLVideoElement>(null);
-  const peerConnection = useRef<RTCPeerConnection | null>(null);
-  const dataChannel = useRef<RTCDataChannel | null>(null);
   
   // State for UI
   const [callActive, setCallActive] = useState<boolean>(true);
-  const [micActive, setMicActive] = useState<boolean>(true);
-  const [videoActive, setVideoActive] = useState<boolean>(true);
   const [chatOpen, setChatOpen] = useState<boolean>(false);
   const [fullscreen, setFullscreen] = useState<boolean>(false);
   const [message, setMessage] = useState<string>("");
@@ -87,118 +78,55 @@ const CallPage = () => {
     },
   ];
 
+  // Use our WebRTC hook
+  const {
+    isConnected,
+    micActive,
+    videoActive,
+    initializeCall,
+    toggleMicrophone,
+    toggleVideo,
+    sendChatMessage,
+    endCall
+  } = useWebRTC({
+    callId: callId || "1",
+    localVideoRef,
+    remoteVideoRef,
+    onCallConnected: () => {
+      toast.success("Call connected!");
+    },
+    onCallEnded: () => {
+      toast.info("Call ended");
+      setCallActive(false);
+      // You can add a slight delay before navigation if needed
+      setTimeout(() => navigate("/calls"), 1000);
+    }
+  });
+
   useEffect(() => {
-    // Initialize WebRTC
-    const initWebRTC = async () => {
+    // Initialize call when component mounts
+    const fetchCallData = async () => {
       try {
-        // Get user media
-        const stream = await navigator.mediaDevices.getUserMedia({
-          video: true,
-          audio: true,
-        });
-        
-        // Display local video
-        if (localVideoRef.current) {
-          localVideoRef.current.srcObject = stream;
+        if (callId) {
+          // In a real app, fetch call data from API
+          // const data = await CallService.getCallDetails(parseInt(callId));
+          // setCallData(data);
+          
+          // Initialize the call
+          const isInitiator = location.state?.isInitiator || false;
+          await initializeCall(isInitiator);
         }
-        
-        // Create peer connection
-        peerConnection.current = new RTCPeerConnection(PEER_CONNECTION_CONFIG);
-        
-        // Add tracks to peer connection
-        stream.getTracks().forEach(track => {
-          peerConnection.current?.addTrack(track, stream);
-        });
-        
-        // Create data channel for chat
-        dataChannel.current = peerConnection.current.createDataChannel("chat");
-        setupDataChannel(dataChannel.current);
-        
-        // Set up event handlers for peer connection
-        peerConnection.current.onicecandidate = event => {
-          if (event.candidate) {
-            // Send to signaling server
-            console.log("New ICE candidate:", event.candidate);
-          }
-        };
-        
-        peerConnection.current.ontrack = event => {
-          // Display remote video
-          if (remoteVideoRef.current && event.streams[0]) {
-            remoteVideoRef.current.srcObject = event.streams[0];
-          }
-        };
-        
-        // In a real application, here you would:
-        // 1. Connect to a signaling server
-        // 2. Exchange SDP and ICE candidates with other peers
-        
       } catch (error) {
-        console.error("Error initializing WebRTC:", error);
-        toast({
-          variant: "destructive",
-          title: "Failed to start call",
-          description: "Could not access camera or microphone. Please check permissions.",
-        });
+        console.error("Error fetching call data:", error);
+        toast.error("Failed to initialize call");
       }
     };
     
-    initWebRTC();
-    
-    // Cleanup function
-    return () => {
-      // Close peer connection
-      if (peerConnection.current) {
-        peerConnection.current.close();
-      }
-      
-      // Stop all tracks
-      if (localVideoRef.current && localVideoRef.current.srcObject) {
-        const stream = localVideoRef.current.srcObject as MediaStream;
-        stream.getTracks().forEach(track => track.stop());
-      }
-    };
-  }, [toast]);
-  
-  const setupDataChannel = (channel: RTCDataChannel) => {
-    channel.onopen = () => {
-      console.log("Data channel is open");
-    };
-    
-    channel.onmessage = event => {
-      const message = JSON.parse(event.data);
-      setMessages(prev => [...prev, message]);
-    };
-    
-    channel.onclose = () => {
-      console.log("Data channel is closed");
-    };
-  };
-  
-  const toggleMic = () => {
-    if (localVideoRef.current && localVideoRef.current.srcObject) {
-      const stream = localVideoRef.current.srcObject as MediaStream;
-      const audioTracks = stream.getAudioTracks();
-      audioTracks.forEach(track => {
-        track.enabled = !track.enabled;
-      });
-      setMicActive(audioTracks[0]?.enabled || false);
-    }
-  };
-  
-  const toggleVideo = () => {
-    if (localVideoRef.current && localVideoRef.current.srcObject) {
-      const stream = localVideoRef.current.srcObject as MediaStream;
-      const videoTracks = stream.getVideoTracks();
-      videoTracks.forEach(track => {
-        track.enabled = !track.enabled;
-      });
-      setVideoActive(videoTracks[0]?.enabled || false);
-    }
-  };
+    fetchCallData();
+  }, [callId, initializeCall, location.state?.isInitiator]);
   
   const sendMessage = () => {
-    if (!message.trim() || !dataChannel.current) return;
+    if (!message.trim()) return;
     
     const newMessage = {
       sender: "You",
@@ -206,35 +134,13 @@ const CallPage = () => {
     };
     
     setMessages(prev => [...prev, newMessage]);
-    
-    if (dataChannel.current.readyState === "open") {
-      dataChannel.current.send(JSON.stringify(newMessage));
-    }
-    
+    sendChatMessage(message);
     setMessage("");
   };
   
-  const endCall = () => {
-    // Close peer connection
-    if (peerConnection.current) {
-      peerConnection.current.close();
-    }
-    
-    // Stop all tracks
-    if (localVideoRef.current && localVideoRef.current.srcObject) {
-      const stream = localVideoRef.current.srcObject as MediaStream;
-      stream.getTracks().forEach(track => track.stop());
-    }
-    
-    setCallActive(false);
-    
-    toast({
-      title: "Call ended",
-      description: "The call has been disconnected.",
-    });
-    
-    // Navigate back
-    navigate("/");
+  const handleEndCall = () => {
+    endCall();
+    navigate("/calls");
   };
   
   // Toggle fullscreen mode
@@ -328,7 +234,7 @@ const CallPage = () => {
             <Button
               variant={micActive ? "ghost" : "destructive"}
               size="icon"
-              onClick={toggleMic}
+              onClick={toggleMicrophone}
               className="rounded-full"
             >
               {micActive ? <Mic className="h-4 w-4" /> : <MicOff className="h-4 w-4" />}
@@ -346,7 +252,7 @@ const CallPage = () => {
             <Button
               variant="destructive"
               size="icon"
-              onClick={endCall}
+              onClick={handleEndCall}
               className="rounded-full"
             >
               <PhoneOff className="h-4 w-4" />
