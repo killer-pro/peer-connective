@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { Edit2, Mail, Phone, CheckCircle, XCircle, User, Bell, Shield, LogOut } from "lucide-react";
+import {useEffect, useState} from "react";
+import {Edit2, Mail, Phone, CheckCircle, XCircle, User, Bell, Shield, LogOut, Camera} from "lucide-react";
 import Layout from "@/components/layout/Layout";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";

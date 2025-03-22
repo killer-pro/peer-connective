@@ -40,6 +40,8 @@ export interface CallData {
     end_time?: string;
     duration?: number;
     participants_details: CallParticipant[];
+    created_at: string;
+    updated_at: string;
 }
 
 export interface CreateCallData {

@@ -100,6 +100,8 @@ export function useCallsPage() {
         // Add example call if not already in history
         const callExists = callHistory.some(call => call.id === recentCallData.id);
         if (!callExists) {
+          // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+          // @ts-expect-error
           callHistory.push(recentCallData);
         }
 
@@ -179,7 +181,7 @@ export function useCallsPage() {
         is_group_call: false,
         participants: [parseInt(contactId)],
         start_time: new Date().toISOString(),
-        status: "in_progress",
+        status: "planned",
       });
 
       navigate("/call", { state: { callId: callData.id, callType } });
