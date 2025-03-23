@@ -21,7 +21,7 @@ import { CalendarIcon, Clock } from 'lucide-react';
 import TimeTypeSelector from '@/components/call/TimeTypeSelector';
 import CallTypeSelector from '@/components/call/CallTypeSelector';
 import ParticipantSelector from '@/components/call/ParticipantSelector';
-import { mockContacts } from './types';
+import {mockContacts} from "@/types/contact.ts";
 
 // Schema for form validation
 const formSchema = z.object({
@@ -104,10 +104,20 @@ const ScheduleForm: React.FC<ScheduleFormProps> = ({ onSchedule, onCancel }) => 
             <FormItem>
               <FormLabel>Call Type</FormLabel>
               <FormControl>
-                <CallTypeSelector
+                <RadioGroup
+                  onValueChange={field.onChange}
                   value={field.value}
-                  onChange={(value) => field.onChange(value)}
-                />
+                  className="flex gap-4"
+                >
+                  <div className="flex items-center space-x-2">
+                    <RadioGroupItem value="audio" id="audio" />
+                    <label htmlFor="audio">Audio</label>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <RadioGroupItem value="video" id="video" />
+                    <label htmlFor="video">Video</label>
+                  </div>
+                </RadioGroup>
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -172,6 +182,7 @@ const ScheduleForm: React.FC<ScheduleFormProps> = ({ onSchedule, onCancel }) => 
                     onSelect={field.onChange}
                     disabled={(date) => date < new Date()}
                     initialFocus
+                    className="pointer-events-auto"
                   />
                 </PopoverContent>
               </Popover>
@@ -211,11 +222,21 @@ const ScheduleForm: React.FC<ScheduleFormProps> = ({ onSchedule, onCancel }) => 
             <FormItem>
               <FormLabel>Participants</FormLabel>
               <FormControl>
-                <ParticipantSelector
-                  contacts={mockContacts}
-                  selectedIds={field.value}
-                  onChange={handleParticipantChange}
-                />
+                <select 
+                  multiple 
+                  className="w-full h-32 rounded-md border border-input bg-background px-3 py-2"
+                  value={field.value}
+                  onChange={(e) => {
+                    const options = Array.from(e.target.selectedOptions, option => option.value);
+                    field.onChange(options);
+                  }}
+                >
+                  {mockContacts.map(contact => (
+                    <option key={contact.id} value={contact.id}>
+                      {contact.name}
+                    </option>
+                  ))}
+                </select>
               </FormControl>
               <FormMessage />
             </FormItem>

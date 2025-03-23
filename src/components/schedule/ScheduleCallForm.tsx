@@ -18,7 +18,8 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Calendar } from '@/components/ui/calendar';
 import { format } from 'date-fns';
 import { CalendarIcon, Clock } from 'lucide-react';
-import { mockContacts } from './types';
+import { mockScheduleContacts } from './types';
+import {mockContacts} from "@/types/contact.ts";
 
 // Schema for form validation
 const formSchema = z.object({
@@ -164,6 +165,7 @@ const ScheduleCallForm: React.FC<ScheduleCallFormProps> = ({ onSubmit, onCancel 
                     onSelect={field.onChange}
                     disabled={(date) => date < new Date()}
                     initialFocus
+                    className="pointer-events-auto"
                   />
                 </PopoverContent>
               </Popover>

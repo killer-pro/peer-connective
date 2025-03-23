@@ -61,24 +61,24 @@ export interface CreateCallData {
 export const CallService = {
     // Fetching calls
     getAllCalls: async (): Promise<CallData[]> => {
-        return apiService.get<CallData[]>('/calls/');
+        return apiService.get<CallData[]>('/calls/me');
     },
 
     // Get recent calls (completed, missed, cancelled)
     getCallHistory: async (): Promise<CallData[]> => {
         // Using the dedicated endpoint for history
-        return apiService.get<CallData[]>('/calls/history/');
+        return apiService.get<CallData[]>('/calls/me/history/');
     },
 
     // Get scheduled calls
     getScheduledCalls: async (): Promise<CallData[]> => {
         // Using the dedicated endpoint for scheduled calls
-        return apiService.get<CallData[]>('/calls/scheduled/');
+        return apiService.get<CallData[]>('/calls/me/scheduled/');
     },
 
     // Start a new call
     startCall: async (data: CreateCallData): Promise<CallData> => {
-        const newCall = await apiService.post<CallData>('/calls/', {
+        const newCall = await apiService.post<CallData>('/calls/me/', {
             initiator: data.initiator,
             call_type: data.call_type,
             is_group_call: data.is_group_call,
@@ -93,7 +93,7 @@ export const CallService = {
 
         // Start the created call if it's immediate
         if (data.status === 'in_progress') {
-            return apiService.post<CallData>(`/calls/${newCall.id}/start/`, {});
+            return apiService.post<CallData>(`/calls/me/${newCall.id}/start/`, {});
         }
         
         return newCall;
@@ -101,22 +101,22 @@ export const CallService = {
 
     // Join a call
     joinCall: async (callId: number): Promise<CallData> => {
-        return apiService.post<CallData>(`/calls/${callId}/join/`, {});
+        return apiService.post<CallData>(`/calls/me/${callId}/join/`, {});
     },
 
     // Leave a call
     leaveCall: async (callId: number): Promise<CallData> => {
-        return apiService.post<CallData>(`/calls/${callId}/leave/`, {});
+        return apiService.post<CallData>(`/calls/me/${callId}/leave/`, {});
     },
 
     // End a call
     endCall: async (callId: number): Promise<CallData> => {
-        return apiService.post<CallData>(`/calls/${callId}/end/`, {});
+        return apiService.post<CallData>(`/calls/me/${callId}/end/`, {});
     },
 
     // Get call details
     getCallDetails: async (callId: number): Promise<CallData> => {
-        return apiService.get<CallData>(`/calls/${callId}/`);
+        return apiService.get<CallData>(`/calls/me/${callId}/`);
     },
 
     // Get contacts (users)

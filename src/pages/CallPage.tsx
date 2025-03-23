@@ -28,7 +28,8 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
-import { useWebRTC } from "@/hooks/useWebRTC";
+// Import from the implementation file directly to avoid case sensitivity issues
+import { useWebRTC } from "@/hooks/useWebRtcImplementation";
 import CallService from "@/services/callService";
 import { toast } from "sonner";
 
@@ -46,7 +47,7 @@ const CallPage = () => {
   const [fullscreen, setFullscreen] = useState<boolean>(false);
   const [message, setMessage] = useState<string>("");
   const [messages, setMessages] = useState<Array<{sender: string, content: string}>>([]);
-  
+
   // Mock data to be replaced with real API calls
   const [callData, setCallData] = useState<any>(
     location.state?.groupCall || {
@@ -155,6 +156,22 @@ const CallPage = () => {
       }
     }
   };
+
+  useEffect(() => {
+    console.log("WebRTC connection status:", isConnected);
+  }, [isConnected]);
+  useEffect(() => {
+    if (localVideoRef.current) {
+      console.log("Local video ref is set", localVideoRef.current);
+    } else {
+      console.error("Local video ref is null");
+    }
+    if (remoteVideoRef.current) {
+      console.log("Remote video ref is set", remoteVideoRef.current);
+    } else {
+      console.error("Remote video ref is null");
+    }
+  }, []);
 
   return (
     <div className="flex flex-col h-screen bg-background">

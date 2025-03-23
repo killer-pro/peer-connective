@@ -17,7 +17,7 @@ export function useSchedule(initialCalls: ScheduledCallDisplay[] = []) {
 
   // Filter calls for the selected date
   const callsForSelectedDate = scheduledCalls.filter(call => 
-    isSameDay(call.date, date)
+    call.date && isSameDay(new Date(call.date), date)
   );
 
   const handleScheduleCall = (values: any) => {
@@ -33,6 +33,7 @@ export function useSchedule(initialCalls: ScheduledCallDisplay[] = []) {
       const newCall: ScheduledCallDisplay = {
         id: `call-${Date.now()}`,
         title: values.title || "Untitled Call",
+        scheduledTime: values.date || new Date(),
         date: values.date || new Date(),
         startTime: startTime,
         endTime: endTime,
@@ -43,14 +44,16 @@ export function useSchedule(initialCalls: ScheduledCallDisplay[] = []) {
           avatar: ""
         })) || [],
         description: "",
-        isGroup: values.participantIds?.length > 1 || false
+        isGroupCall: values.participantIds?.length > 1 || false,
+        callType: values.callType || "video",
+        status: "planned"
       };
       
       setScheduledCalls([...scheduledCalls, newCall]);
       
       toast({
         title: "Call Scheduled",
-        description: `${newCall.title} has been scheduled for ${format(newCall.date, "PPP")} at ${newCall.startTime}`
+        description: `${newCall.title} has been scheduled for ${format(new Date(newCall.scheduledTime), "PPP")} at ${newCall.startTime}`
       });
       
       return true;
