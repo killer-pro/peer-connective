@@ -28,7 +28,8 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
-import { useWebRTC } from "@/hooks/useWebRTC";
+// Import from the implementation file directly to avoid case sensitivity issues
+import { useWebRTC } from "@/hooks/useWebRtcImplementation";
 import CallService from "@/services/callService";
 import { toast } from "sonner";
 
