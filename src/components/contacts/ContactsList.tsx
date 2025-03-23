@@ -2,14 +2,14 @@
 import React from 'react';
 import { Loader2 } from "lucide-react";
 import { Card } from "@/components/ui/card";
-import { BackendContact } from "@/services/contactsService";
+import { ContactData } from "@/services/contactsService";
 import ContactCard from './ContactCard';
 
 interface ContactsListProps {
-  contacts: BackendContact[];
+  contacts: ContactData[];
   isLoading: boolean;
-  onContactAction: (action: string, contact: BackendContact) => void;
-  filter?: (contact: BackendContact) => boolean;
+  onContactAction: (action: string, contact: ContactData) => void;
+  filter?: (contact: ContactData) => boolean;
 }
 
 const ContactsList = ({ contacts, isLoading, onContactAction, filter }: ContactsListProps) => {

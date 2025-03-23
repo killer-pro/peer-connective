@@ -11,12 +11,12 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { BackendContact } from "@/services/contactsService";
+import { ContactData } from "@/services/contactsService";
 
 interface ContactDetailProps {
-  contact: BackendContact | null;
+  contact: ContactData | null;
   onClose: () => void;
-  onAction: (action: string, contact: BackendContact) => void;
+  onAction: (action: string, contact: ContactData) => void;
 }
 
 const ContactDetail = ({ contact, onClose, onAction }: ContactDetailProps) => {
@@ -32,7 +32,7 @@ const ContactDetail = ({ contact, onClose, onAction }: ContactDetailProps) => {
           <Avatar className="h-20 w-20">
             <AvatarImage src={contact.avatar} alt={contact.name} />
             <AvatarFallback className="text-2xl bg-primary/10 text-primary">
-              {contact.name.split(" ").map(n => n[0]).join("")}
+              {contact.name ? contact.name.split(" ").map(n => n[0]).join("") : "?"}
             </AvatarFallback>
           </Avatar>
           <h2 className="text-xl font-semibold">{contact.name}</h2>
@@ -83,10 +83,10 @@ const ContactDetail = ({ contact, onClose, onAction }: ContactDetailProps) => {
                 <span className="col-span-2">{contact.phone}</span>
               </div>
             )}
-            {contact.lastContact && (
+            {contact.last_contact && (
               <div className="grid grid-cols-3 border-b pb-2">
                 <span className="text-muted-foreground">Last Contact</span>
-                <span className="col-span-2">{new Date(contact.lastContact).toLocaleDateString()}</span>
+                <span className="col-span-2">{new Date(contact.last_contact).toLocaleDateString()}</span>
               </div>
             )}
             {contact.notes && (

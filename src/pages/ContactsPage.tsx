@@ -5,7 +5,7 @@ import Layout from "@/components/layout/Layout";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { BackendContact, ContactCreate } from "@/services/contactsService";
+import { ContactCreate, ContactData } from "@/services/contactsService";
 import ContactsList from "@/components/contacts/ContactsList";
 import ContactDetail from "@/components/contacts/ContactDetail";
 import AddContactDialog from "@/components/contacts/AddContactDialog";
@@ -23,37 +23,49 @@ const ContactsPage = () => {
   } = useContacts();
   
   const [searchTerm, setSearchTerm] = useState("");
-  const [selectedContact, setSelectedContact] = useState<BackendContact | null>(null);
+  const [selectedContact, setSelectedContact] = useState<ContactData | null>(null);
   const [isAddContactOpen, setIsAddContactOpen] = useState(false);
-  const [newContact, setNewContact] = useState<ContactCreate>({
+  const [newContact, setNewContact] = useState<ContactCreate & { email: string; name: string; }>({
     contact_user: 0,
     nickname: "",
     is_favorite: false,
     notes: "",
-    phone: ""
+    phone: "",
+    email: "",
+    name: ""
   });
 
   const filteredContacts = contacts.filter(contact =>
-    contact.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    contact.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    contact.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    contact.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
     (contact.phone && contact.phone.includes(searchTerm))
   );
 
   const handleAddContact = async () => {
-    const success = await addContact(newContact);
+    const contactData: ContactCreate = {
+      contact_user: newContact.contact_user,
+      nickname: newContact.nickname,
+      is_favorite: newContact.is_favorite,
+      notes: newContact.notes,
+      phone: newContact.phone
+    };
+    
+    const success = await addContact(contactData);
     if (success) {
       setNewContact({
         contact_user: 0,
         nickname: "",
         is_favorite: false,
         notes: "",
-        phone: ""
+        phone: "",
+        email: "",
+        name: ""
       });
       setIsAddContactOpen(false);
     }
   };
 
-  const handleContactAction = (action: string, contact: BackendContact) => {
+  const handleContactAction = (action: string, contact: ContactData) => {
     switch (action) {
       case 'email':
         window.location.href = `mailto:${contact.email}`;
@@ -124,7 +136,7 @@ const ContactsPage = () => {
               contacts={filteredContacts}
               isLoading={isLoading}
               onContactAction={handleContactAction}
-              filter={(contact) => contact.favorite}
+              filter={(contact) => contact.favorite || false}
             />
           </TabsContent>
 
@@ -133,7 +145,7 @@ const ContactsPage = () => {
               contacts={filteredContacts}
               isLoading={isLoading}
               onContactAction={handleContactAction}
-              filter={(contact) => contact.online}
+              filter={(contact) => contact.online || false}
             />
           </TabsContent>
         </Tabs>

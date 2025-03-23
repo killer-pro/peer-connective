@@ -8,13 +8,12 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { BackendContact, ContactCreate } from "@/services/contactsService";
+import { ContactCreate } from "@/services/contactsService";
 
 interface AddContactDialogProps {
   open: boolean;
@@ -22,7 +21,17 @@ interface AddContactDialogProps {
   onAddContact: () => void;
   newContact: ContactCreate & { email: string; name: string; };
   setNewContact: React.Dispatch<React.SetStateAction<ContactCreate & { email: string; name: string; }>>;
-  availableUsers: BackendContact["contact_user_details"][];
+  availableUsers: {
+    id: number;
+    username: string;
+    email: string;
+    first_name: string;
+    last_name: string;
+    phone_number: string;
+    profile_image: string | null;
+    online_status: boolean;
+    last_seen: string | null;
+  }[];
   isLoading: boolean;
 }
 
@@ -35,6 +44,18 @@ const AddContactDialog = ({
   availableUsers,
   isLoading 
 }: AddContactDialogProps) => {
+  // Handle user selection and update email/name fields
+  const handleUserChange = (userId: string) => {
+    const user = availableUsers.find(u => u.id.toString() === userId);
+    
+    setNewContact({
+      ...newContact,
+      contact_user: parseInt(userId),
+      email: user?.email || '',
+      name: user ? `${user.first_name} ${user.last_name}`.trim() || user.username : ''
+    });
+  };
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[425px]">
@@ -51,7 +72,7 @@ const AddContactDialog = ({
             </Label>
             <Select
               value={newContact.contact_user?.toString() || ""}
-              onValueChange={(value) => setNewContact({...newContact, contact_user: parseInt(value)})}
+              onValueChange={handleUserChange}
             >
               <SelectTrigger className="col-span-3">
                 <SelectValue placeholder="Select a user" />

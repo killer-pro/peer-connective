@@ -12,11 +12,11 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { BackendContact } from "@/services/contactsService";
+import { ContactData } from "@/services/contactsService";
 
 interface ContactCardProps {
-  contact: BackendContact;
-  onAction: (action: string, contact: BackendContact) => void;
+  contact: ContactData;
+  onAction: (action: string, contact: ContactData) => void;
 }
 
 const ContactCard = ({ contact, onAction }: ContactCardProps) => (
@@ -26,7 +26,7 @@ const ContactCard = ({ contact, onAction }: ContactCardProps) => (
         <Avatar className="h-10 w-10">
           <AvatarImage src={contact.avatar} alt={contact.name} />
           <AvatarFallback className="bg-primary/10 text-primary">
-            {contact.name.split(" ").map(n => n[0]).join("")}
+            {contact.name ? contact.name.split(" ").map(n => n[0]).join("") : "?"}
           </AvatarFallback>
         </Avatar>
         {contact.online && (

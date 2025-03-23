@@ -1,9 +1,16 @@
 
 import React, { useState } from "react";
-import { Contact } from "@/services/callService";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Search, X } from "lucide-react";
 import { Input } from "@/components/ui/input";
+
+export interface Contact {
+  id: string;
+  username: string;
+  email: string;
+  avatar: string;
+  status: string;
+}
 
 export interface ParticipantSelectorProps {
   selectedIds: string[];

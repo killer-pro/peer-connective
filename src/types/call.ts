@@ -52,8 +52,8 @@ export interface ScheduledCall {
   }[];
   description?: string;
   isGroup: boolean;
-  callType?: CallType;
-  scheduledTime?: string;
+  callType: CallType;
+  scheduledTime: string;
 }
 
 export interface SignalingMessage {

@@ -1,11 +1,11 @@
 
 import { useState, useEffect } from "react";
 import { useToast } from "@/components/ui/use-toast";
-import { contactsService, BackendContact, ContactCreate } from "@/services/contactsService";
+import { contactsService, ContactCreate, ContactData } from "@/services/contactsService";
 
 export function useContacts() {
-  const [contacts, setContacts] = useState<BackendContact[]>([]);
-  const [availableUsers, setAvailableUsers] = useState<BackendContact["contact_user_details"][]>([]);
+  const [contacts, setContacts] = useState<ContactData[]>([]);
+  const [availableUsers, setAvailableUsers] = useState<ContactData["contact_user_details"][]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const { toast } = useToast();
 
