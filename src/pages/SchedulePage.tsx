@@ -9,7 +9,7 @@ import { useSchedule } from "@/hooks/useSchedule";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 
-// Import mock data from the same place as before
+// Import mock data
 import { mockScheduledCalls } from "@/components/schedule/types";
 
 const SchedulePage = () => {

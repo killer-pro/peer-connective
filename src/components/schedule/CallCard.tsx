@@ -23,11 +23,15 @@ const CallCard: React.FC<CallCardProps> = ({ call }) => {
       <div className="grid grid-cols-2 gap-2 mb-3">
         <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
           <Clock className="h-3.5 w-3.5" />
-          <span>{call.startTime} - {call.endTime}</span>
+          <span>
+            {call.startTime && call.endTime 
+              ? `${call.startTime} - ${call.endTime}`
+              : "Time not specified"}
+          </span>
         </div>
         <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
           <Video className="h-3.5 w-3.5" />
-          <span>{call.duration}</span>
+          <span>{call.duration || "Duration not specified"}</span>
         </div>
         <div className="flex items-center gap-1.5 text-sm text-muted-foreground col-span-2">
           <Users className="h-3.5 w-3.5" />

@@ -16,7 +16,7 @@ import CallTypeSelector from "@/components/call/CallTypeSelector";
 import TimeTypeSelector from "@/components/call/TimeTypeSelector";
 import ParticipantSelector from "@/components/call/ParticipantSelector";
 import SchedulePicker from "@/components/call/SchedulePicker";
-import { mockContacts } from "@/types/contact";
+import { mockContacts } from "@/components/schedule/types";
 
 const CreateGroupCallPage = () => {
   const navigate = useNavigate();
@@ -105,8 +105,9 @@ const CreateGroupCallPage = () => {
               
               {callType === "private" && (
                 <ParticipantSelector 
-                  selectedParticipants={selectedParticipants}
-                  onParticipantToggle={toggleParticipant}
+                  contacts={mockContacts}
+                  selectedIds={selectedParticipants}
+                  onChange={toggleParticipant}
                 />
               )}
               

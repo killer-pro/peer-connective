@@ -164,6 +164,7 @@ const ScheduleCallForm: React.FC<ScheduleCallFormProps> = ({ onSubmit, onCancel 
                     onSelect={field.onChange}
                     disabled={(date) => date < new Date()}
                     initialFocus
+                    className="pointer-events-auto"
                   />
                 </PopoverContent>
               </Popover>
