@@ -57,11 +57,13 @@ export interface ScheduledCall {
 }
 
 export interface SignalingMessage {
-  type: 'offer' | 'answer' | 'ice-candidate' | 'incoming_call';
+  type: 'offer' | 'answer' | 'ice-candidate' | 'incoming_call' | 'chat';
   call: number;
   sender: number;
-  receiver: number;
+  receiver?: number;
   sdp?: RTCSessionDescriptionInit;
   candidate?: RTCIceCandidateInit;
   callId?: number;
+  content?: string;
+  senderName?: string;
 }

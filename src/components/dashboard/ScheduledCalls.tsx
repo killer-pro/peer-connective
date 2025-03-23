@@ -13,25 +13,25 @@ const mockUpcomingCalls: ScheduledCallDisplay[] = [
   {
     id: "1",
     title: "Weekly Team Meeting",
-    call_type: "video",
-    scheduled_time: new Date(Date.now() + 60 * 60 * 1000), // 1 hour from now
+    callType: "video",
+    scheduledTime: new Date(Date.now() + 60 * 60 * 1000), // 1 hour from now
     participants: [
       { id: "1", name: "Alex Morgan", avatar: "" },
       { id: "2", name: "Taylor Swift", avatar: "" },
       { id: "3", name: "Chris Evans", avatar: "" },
     ],
-    is_group_call: true,
+    isGroupCall: true,
     status: "planned"
   },
   {
     id: "2",
     title: "Project Review",
-    call_type: "audio",
-    scheduled_time: new Date(Date.now() + 3 * 60 * 60 * 1000), // 3 hours from now
+    callType: "audio",
+    scheduledTime: new Date(Date.now() + 3 * 60 * 60 * 1000), // 3 hours from now
     participants: [
       { id: "2", name: "Taylor Swift", avatar: "" },
     ],
-    is_group_call: false,
+    isGroupCall: false,
     status: "planned"
   }
 ];
@@ -74,12 +74,12 @@ export const ScheduledCalls: React.FC<ScheduledCallsProps> = ({ limit = 3 }) => 
 const ScheduledCallItem: React.FC<{ call: ScheduledCallDisplay }> = ({ call }) => {
   const navigate = useNavigate();
 
-  const callTypeIcon = call.call_type === "video" ? 
+  const callTypeIcon = call.callType === "video" ? 
     <Video className="h-4 w-4 text-blue-500" /> : 
     <Phone className="h-4 w-4 text-green-500" />;
   
-  const timeUntil = call.scheduled_time ? 
-    formatDistanceToNow(new Date(call.scheduled_time), { addSuffix: true }) : 
+  const timeUntil = call.scheduledTime ? 
+    formatDistanceToNow(new Date(call.scheduledTime), { addSuffix: true }) : 
     "Time not specified";
   
   const handleJoinCall = () => {

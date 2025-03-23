@@ -3,28 +3,43 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { SignalingMessage } from '@/types/call';
-import { websocketService } from '@/services/websocket';
-import { callService } from '@/services/callService';
+import { WebSocketService, createCallWebSocket } from '@/services/websocket';
+import CallService from '@/services/callService';
 
 interface UseWebRTCOptions {
+  callId: string;
+  localVideoRef: React.RefObject<HTMLVideoElement>;
+  remoteVideoRef: React.RefObject<HTMLVideoElement>;
   onLocalStream?: (stream: MediaStream) => void;
   onRemoteStream?: (stream: MediaStream) => void;
+  onCallConnected?: () => void;
+  onCallStarted?: () => void;
   onCallEnded?: () => void;
+  onError?: (error: Error) => void;
 }
 
-export function useWebRTC(callId: number | null, options: UseWebRTCOptions = {}) {
+export function useWebRTC({
+  callId,
+  localVideoRef,
+  remoteVideoRef,
+  onCallConnected,
+  onCallStarted,
+  onCallEnded,
+  onError
+}: UseWebRTCOptions) {
   const navigate = useNavigate();
   const [isConnected, setIsConnected] = useState(false);
   const [isCalling, setIsCalling] = useState(false);
   const [isReceivingCall, setIsReceivingCall] = useState(false);
-  const [callType, setCallType] = useState<'audio' | 'video'>('video');
+  const [micActive, setMicActive] = useState(true);
+  const [videoActive, setVideoActive] = useState(true);
   
   const localStreamRef = useRef<MediaStream | null>(null);
   const remoteStreamRef = useRef<MediaStream | null>(null);
   const peerConnectionRef = useRef<RTCPeerConnection | null>(null);
-  const pollingIntervalRef = useRef<number | null>(null);
+  const websocketRef = useRef<WebSocketService | null>(null);
   
-  const userId = Number(localStorage.getItem('userId'));
+  const userId = Number(localStorage.getItem('userId') || '0');
   
   // Function to create and setup the peer connection
   const setupPeerConnection = useCallback(() => {
@@ -45,20 +60,15 @@ export function useWebRTC(callId: number | null, options: UseWebRTCOptions = {})
         
         const message: SignalingMessage = {
           type: 'ice-candidate',
-          call: callId,
+          call: parseInt(callId),
           sender: userId,
           receiver: 0, // Will be set properly later
           candidate: event.candidate.toJSON()
         };
         
         // Only send if we have a proper receiver (should be set by the offer/answer process)
-        if (message.receiver !== 0) {
-          // Try WebSocket first, fall back to HTTP
-          if (websocketService.isConnected()) {
-            websocketService.send(message);
-          } else {
-            callService.sendIceCandidate(callId, message.receiver, event.candidate.toJSON());
-          }
+        if (message.receiver !== 0 && websocketRef.current) {
+          websocketRef.current.send(message);
         }
       }
     };
@@ -70,13 +80,12 @@ export function useWebRTC(callId: number | null, options: UseWebRTCOptions = {})
         setIsConnected(true);
         setIsCalling(false);
         setIsReceivingCall(false);
+        if (onCallConnected) onCallConnected();
       } else if (peerConnection.connectionState === 'disconnected' || 
                  peerConnection.connectionState === 'failed' || 
                  peerConnection.connectionState === 'closed') {
         setIsConnected(false);
-        if (options.onCallEnded) {
-          options.onCallEnded();
-        }
+        if (onCallEnded) onCallEnded();
       }
     };
     
@@ -85,8 +94,8 @@ export function useWebRTC(callId: number | null, options: UseWebRTCOptions = {})
       console.log('Received remote track:', event.track.kind);
       if (!remoteStreamRef.current) {
         remoteStreamRef.current = new MediaStream();
-        if (options.onRemoteStream) {
-          options.onRemoteStream(remoteStreamRef.current);
+        if (remoteVideoRef.current) {
+          remoteVideoRef.current.srcObject = remoteStreamRef.current;
         }
       }
       remoteStreamRef.current.addTrack(event.track);
@@ -94,7 +103,7 @@ export function useWebRTC(callId: number | null, options: UseWebRTCOptions = {})
     
     peerConnectionRef.current = peerConnection;
     return peerConnection;
-  }, [callId, userId, options]);
+  }, [callId, userId, onCallConnected, onCallEnded, remoteVideoRef]);
   
   // Function to get media stream
   const getMediaStream = useCallback(async (isVideo: boolean) => {
@@ -108,55 +117,28 @@ export function useWebRTC(callId: number | null, options: UseWebRTCOptions = {})
       const stream = await navigator.mediaDevices.getUserMedia(constraints);
       localStreamRef.current = stream;
       
+      // Set local video
+      if (localVideoRef.current) {
+        localVideoRef.current.srcObject = stream;
+      }
+      
       // Add tracks to peer connection
       if (peerConnectionRef.current) {
         stream.getTracks().forEach(track => {
-          if (peerConnectionRef.current) {
-            peerConnectionRef.current.addTrack(track, stream);
+          if (peerConnectionRef.current && localStreamRef.current) {
+            peerConnectionRef.current.addTrack(track, localStreamRef.current);
           }
         });
-      }
-      
-      // Notify parent component
-      if (options.onLocalStream) {
-        options.onLocalStream(stream);
       }
       
       return stream;
     } catch (error) {
       console.error('Error getting user media:', error);
       toast.error('Could not access camera/microphone. Please check permissions.');
+      if (onError) onError(error as Error);
       throw error;
     }
-  }, [options]);
-  
-  // Function to poll for signaling messages
-  const startPolling = useCallback(() => {
-    if (!callId) return;
-    
-    console.log('Starting polling for signaling messages');
-    
-    // Clear any existing interval
-    if (pollingIntervalRef.current) {
-      clearInterval(pollingIntervalRef.current);
-    }
-    
-    // Start new polling interval
-    pollingIntervalRef.current = window.setInterval(async () => {
-      if (!websocketService.isConnected()) {
-        try {
-          const messages = await callService.pollSignalingMessages(callId);
-          
-          messages.forEach(async (message) => {
-            console.log('Received message via polling:', message.type);
-            handleSignalingMessage(message);
-          });
-        } catch (error) {
-          console.error('Error polling for messages:', error);
-        }
-      }
-    }, 2000) as unknown as number;  // Poll every 2 seconds
-  }, [callId]);
+  }, [localVideoRef, onError]);
   
   // Function to handle signaling messages
   const handleSignalingMessage = useCallback((message: SignalingMessage) => {
@@ -200,7 +182,7 @@ export function useWebRTC(callId: number | null, options: UseWebRTCOptions = {})
       
       // Get local stream if not already available
       if (!localStreamRef.current) {
-        await getMediaStream(callType === 'video');
+        await getMediaStream(videoActive);
       }
       
       // Create answer
@@ -208,24 +190,23 @@ export function useWebRTC(callId: number | null, options: UseWebRTCOptions = {})
       await peerConnectionRef.current.setLocalDescription(answer);
       
       // Send answer
-      if (websocketService.isConnected()) {
-        websocketService.send({
+      if (websocketRef.current) {
+        websocketRef.current.send({
           type: 'answer',
-          call: callId,
+          call: parseInt(callId),
           sender: userId,
           receiver: message.sender,
           sdp: peerConnectionRef.current.localDescription
         });
-      } else {
-        await callService.sendAnswer(callId, message.sender, peerConnectionRef.current.localDescription!);
       }
       
       setIsReceivingCall(false);
     } catch (error) {
       console.error('Error handling offer:', error);
       toast.error('Failed to process call offer.');
+      if (onError) onError(error as Error);
     }
-  }, [callId, callType, getMediaStream, userId]);
+  }, [callId, videoActive, getMediaStream, userId, onError]);
   
   // Handle incoming answer
   const handleAnswer = useCallback(async (message: SignalingMessage) => {
@@ -241,8 +222,9 @@ export function useWebRTC(callId: number | null, options: UseWebRTCOptions = {})
     } catch (error) {
       console.error('Error handling answer:', error);
       toast.error('Failed to establish call connection.');
+      if (onError) onError(error as Error);
     }
-  }, []);
+  }, [onError]);
   
   // Handle incoming ICE candidate
   const handleIceCandidate = useCallback((message: SignalingMessage) => {
@@ -256,69 +238,108 @@ export function useWebRTC(callId: number | null, options: UseWebRTCOptions = {})
       peerConnectionRef.current.addIceCandidate(candidate);
     } catch (error) {
       console.error('Error handling ICE candidate:', error);
+      if (onError) onError(error as Error);
+    }
+  }, [onError]);
+  
+  // Initialize call
+  const initializeCall = useCallback(async (asInitiator: boolean = false) => {
+    try {
+      console.log(`Initializing call ${callId} as ${asInitiator ? 'initiator' : 'participant'}`);
+      
+      // Setup WebSocket
+      if (!websocketRef.current) {
+        websocketRef.current = createCallWebSocket(callId, {
+          onMessage: handleSignalingMessage,
+          reconnect: true
+        });
+      }
+      
+      // Setup peer connection
+      setupPeerConnection();
+      
+      // Get media stream
+      await getMediaStream(videoActive);
+      
+      if (asInitiator && peerConnectionRef.current) {
+        // Create offer
+        const offer = await peerConnectionRef.current.createOffer({
+          offerToReceiveAudio: true,
+          offerToReceiveVideo: videoActive
+        });
+        
+        await peerConnectionRef.current.setLocalDescription(offer);
+        
+        // Find participants from the call
+        const callData = await CallService.getCallDetails(parseInt(callId));
+        const participants = callData.participants_details;
+        
+        // Send offer to all participants
+        if (websocketRef.current && participants.length > 0) {
+          // Send to first participant for now
+          const firstParticipant = participants[0];
+          
+          websocketRef.current.send({
+            type: 'offer',
+            call: parseInt(callId),
+            sender: userId,
+            receiver: firstParticipant.user,
+            sdp: peerConnectionRef.current.localDescription
+          });
+        }
+      }
+      
+      if (onCallStarted) onCallStarted();
+      
+    } catch (error) {
+      console.error('Error initializing call:', error);
+      toast.error('Failed to initialize call. Please try again.');
+      if (onError) onError(error as Error);
+    }
+  }, [callId, videoActive, getMediaStream, setupPeerConnection, handleSignalingMessage, userId, onCallStarted, onError]);
+  
+  // Toggle microphone
+  const toggleMicrophone = useCallback(() => {
+    if (localStreamRef.current) {
+      const audioTracks = localStreamRef.current.getAudioTracks();
+      
+      audioTracks.forEach(track => {
+        track.enabled = !track.enabled;
+      });
+      
+      setMicActive(audioTracks.length > 0 ? audioTracks[0].enabled : false);
     }
   }, []);
   
-  // Function to start a call
-  const startCall = useCallback(async (recipientId: number, type: 'audio' | 'video') => {
-    if (!callId) {
-      console.error('Cannot start call: No call ID provided');
-      return;
-    }
-    
-    try {
-      console.log(`Starting ${type} call to user ${recipientId}`);
-      setCallType(type);
-      setIsCalling(true);
+  // Toggle video
+  const toggleVideo = useCallback(() => {
+    if (localStreamRef.current) {
+      const videoTracks = localStreamRef.current.getVideoTracks();
       
-      // Setup peer connection if not already done
-      const peerConnection = peerConnectionRef.current || setupPeerConnection();
-      
-      // Get local media stream
-      await getMediaStream(type === 'video');
-      
-      // Create and send offer
-      const offer = await peerConnection.createOffer({
-        offerToReceiveAudio: true, 
-        offerToReceiveVideo: type === 'video'
+      videoTracks.forEach(track => {
+        track.enabled = !track.enabled;
       });
       
-      await peerConnection.setLocalDescription(offer);
-      
-      if (websocketService.isConnected()) {
-        websocketService.send({
-          type: 'offer',
-          call: callId,
-          sender: userId,
-          receiver: recipientId,
-          sdp: peerConnection.localDescription
-        });
-      } else {
-        await callService.sendOffer(callId, recipientId, peerConnection.localDescription!);
-      }
-      
-      // Start polling for responses
-      startPolling();
-      
-    } catch (error) {
-      console.error('Error starting call:', error);
-      setIsCalling(false);
-      toast.error('Failed to start call. Please try again.');
+      setVideoActive(videoTracks.length > 0 ? videoTracks[0].enabled : false);
     }
-  }, [callId, getMediaStream, setupPeerConnection, startPolling, userId]);
+  }, []);
   
-  // Function to answer a call
-  const answerCall = useCallback(async (callId: number, callDetails: any) => {
-    try {
-      console.log('Answering call:', callDetails);
-      navigate(`/call?id=${callId}`);
-    } catch (error) {
-      console.error('Error answering call:', error);
-      toast.error('Failed to answer call.');
+  // Send chat message
+  const sendChatMessage = useCallback((content: string) => {
+    if (websocketRef.current && callId) {
+      websocketRef.current.send({
+        type: 'chat',
+        call: parseInt(callId),
+        sender: userId,
+        content
+      });
+      
+      return true;
     }
-  }, [navigate]);
+    return false;
+  }, [callId, userId]);
   
-  // Function to end the call
+  // End call
   const endCall = useCallback(async () => {
     console.log('Ending call');
     
@@ -328,21 +349,16 @@ export function useWebRTC(callId: number | null, options: UseWebRTCOptions = {})
       localStreamRef.current = null;
     }
     
-    if (remoteStreamRef.current) {
-      remoteStreamRef.current.getTracks().forEach(track => track.stop());
-      remoteStreamRef.current = null;
-    }
-    
     // Close peer connection
     if (peerConnectionRef.current) {
       peerConnectionRef.current.close();
       peerConnectionRef.current = null;
     }
     
-    // Clear polling interval
-    if (pollingIntervalRef.current) {
-      clearInterval(pollingIntervalRef.current);
-      pollingIntervalRef.current = null;
+    // Close WebSocket
+    if (websocketRef.current) {
+      websocketRef.current.disconnect();
+      websocketRef.current = null;
     }
     
     setIsConnected(false);
@@ -352,50 +368,18 @@ export function useWebRTC(callId: number | null, options: UseWebRTCOptions = {})
     // Update call status in the backend
     if (callId) {
       try {
-        await callService.endCall(callId);
+        await CallService.endCall(parseInt(callId));
       } catch (error) {
         console.error('Error ending call on server:', error);
       }
     }
     
     // Notify parent component
-    if (options.onCallEnded) {
-      options.onCallEnded();
+    if (onCallEnded) {
+      onCallEnded();
     }
     
-  }, [callId, options]);
-  
-  // Set up WebSocket message handler
-  useEffect(() => {
-    if (!callId) return;
-    
-    console.log('Setting up WebSocket message handler for call:', callId);
-    
-    // Handler for WebSocket messages
-    const handleWebSocketMessage = (data: any) => {
-      if (data.type === 'offer' || data.type === 'answer' || data.type === 'ice-candidate') {
-        console.log('Received WebSocket message:', data.type);
-        handleSignalingMessage(data);
-      }
-    };
-    
-    // Connect to WebSocket for this call
-    websocketService.connect(`ws/signaling/${callId}/`);
-    websocketService.onMessage(handleWebSocketMessage);
-    
-    // Start polling as fallback
-    startPolling();
-    
-    return () => {
-      if (pollingIntervalRef.current) {
-        clearInterval(pollingIntervalRef.current);
-      }
-      
-      // Disconnect from WebSocket
-      websocketService.onMessage(null);
-      websocketService.disconnect();
-    };
-  }, [callId, handleSignalingMessage, startPolling]);
+  }, [callId, onCallEnded]);
   
   // Clean up when component unmounts
   useEffect(() => {
@@ -410,9 +394,9 @@ export function useWebRTC(callId: number | null, options: UseWebRTCOptions = {})
         peerConnectionRef.current.close();
       }
       
-      // Clear polling interval
-      if (pollingIntervalRef.current) {
-        clearInterval(pollingIntervalRef.current);
+      // Close WebSocket
+      if (websocketRef.current) {
+        websocketRef.current.disconnect();
       }
     };
   }, []);
@@ -421,8 +405,12 @@ export function useWebRTC(callId: number | null, options: UseWebRTCOptions = {})
     isConnected,
     isCalling,
     isReceivingCall,
-    startCall,
-    answerCall,
+    micActive,
+    videoActive,
+    initializeCall,
+    toggleMicrophone,
+    toggleVideo,
+    sendChatMessage,
     endCall,
     localStream: localStreamRef.current,
     remoteStream: remoteStreamRef.current,
