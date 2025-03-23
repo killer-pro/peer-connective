@@ -63,26 +63,39 @@ export const useWebSocket = ({
   // Effect to manage WebSocket connection
   useEffect(() => {
     const handleOpen = () => {
+      console.log(`WebSocket connected to ${url}`);
       setIsConnected(true);
       if (onOpen) onOpen();
     };
     
     const handleClose = () => {
+      console.log(`WebSocket disconnected from ${url}`);
       setIsConnected(false);
       if (onClose) onClose();
+    };
+    
+    const handleMessage = (data: any) => {
+      console.log(`WebSocket message received from ${url}:`, data);
+      if (onMessage) onMessage(data);
+    };
+    
+    const handleError = (event: Event) => {
+      console.error(`WebSocket error on ${url}:`, event);
+      if (onError) onError(event);
     };
     
     wsRef.current = new WebSocketService(url, {
       onOpen: handleOpen,
       onClose: handleClose,
-      onError,
-      onMessage,
+      onError: handleError,
+      onMessage: handleMessage,
       reconnect,
       reconnectInterval,
       maxReconnectAttempts
     });
     
     if (autoConnect) {
+      console.log(`Connecting WebSocket to ${url}`);
       wsRef.current.connect();
     }
     

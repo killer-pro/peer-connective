@@ -52,14 +52,16 @@ export interface ScheduledCall {
   }[];
   description?: string;
   isGroup: boolean;
-  call_type?: CallType;
-  scheduled_time?: string;
+  callType?: CallType;
+  scheduledTime?: string;
 }
 
 export interface SignalingMessage {
+  type: 'offer' | 'answer' | 'ice-candidate' | 'incoming_call';
   call: number;
   sender: number;
   receiver: number;
-  message_type: 'offer' | 'answer' | 'ice-candidate';
-  content: any;
+  sdp?: RTCSessionDescriptionInit;
+  candidate?: RTCIceCandidateInit;
+  callId?: number;
 }

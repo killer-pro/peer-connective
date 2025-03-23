@@ -38,10 +38,11 @@ export class WebSocketService {
       return;
     }
     
+    console.log(`WebSocketService: Connecting to ${this.url}`);
     this.socket = new WebSocket(this.url);
     
     this.socket.onopen = () => {
-      console.log("WebSocket connected");
+      console.log(`WebSocketService: Connected to ${this.url}`);
       this.reconnectAttempts = 0;
       
       if (this.options.onOpen) {
@@ -50,28 +51,28 @@ export class WebSocketService {
     };
     
     this.socket.onclose = (event) => {
-      console.log(`WebSocket disconnected (code: ${event.code}, reason: ${event.reason})`);
+      console.log(`WebSocketService: Disconnected from ${this.url} (code: ${event.code}, reason: ${event.reason})`);
       
       if (this.options.onClose) {
         this.options.onClose();
       }
       
-      // Tentative de reconnexion si activée
+      // Attempt to reconnect if enabled
       if (this.options.reconnect && 
           (!this.options.maxReconnectAttempts || 
            this.reconnectAttempts < this.options.maxReconnectAttempts)) {
         this.reconnectTimeout = window.setTimeout(() => {
           this.reconnectAttempts++;
-          console.log(`Attempting to reconnect (${this.reconnectAttempts}/${this.options.maxReconnectAttempts})`);
+          console.log(`WebSocketService: Attempting to reconnect (${this.reconnectAttempts}/${this.options.maxReconnectAttempts})`);
           this.connect();
         }, this.options.reconnectInterval);
       } else if (this.reconnectAttempts >= (this.options.maxReconnectAttempts || 0)) {
-        toast.error("La connexion au serveur a été perdue. Veuillez rafraîchir la page.");
+        toast.error("The connection to the server has been lost. Please refresh the page.");
       }
     };
     
     this.socket.onerror = (event) => {
-      console.error("WebSocket error:", event);
+      console.error(`WebSocketService: Error on ${this.url}`, event);
       
       if (this.options.onError) {
         this.options.onError(event);
@@ -83,20 +84,27 @@ export class WebSocketService {
       
       try {
         data = JSON.parse(event.data);
+        console.log(`WebSocketService: Message received from ${this.url}:`, data);
       } catch (error) {
-        console.error("Failed to parse WebSocket message:", error);
+        console.error(`WebSocketService: Failed to parse WebSocket message from ${this.url}:`, error);
         return;
       }
       
-      // Traitement global des messages
+      // Global message handler
       if (this.options.onMessage) {
         this.options.onMessage(data);
       }
       
-      // Traitement des gestionnaires spécifiques
+      // Type-specific handlers
       if (data.type && this.messageHandlers.has(data.type)) {
         const handlers = this.messageHandlers.get(data.type) || [];
-        handlers.forEach(handler => handler(data));
+        handlers.forEach(handler => {
+          try {
+            handler(data);
+          } catch (error) {
+            console.error(`WebSocketService: Error in message handler for type ${data.type}:`, error);
+          }
+        });
       }
     };
   }
@@ -108,6 +116,7 @@ export class WebSocketService {
     }
     
     if (this.socket) {
+      console.log(`WebSocketService: Closing connection to ${this.url}`);
       this.socket.close();
       this.socket = null;
     }
@@ -115,15 +124,17 @@ export class WebSocketService {
   
   send(data: unknown): boolean {
     if (!this.socket || this.socket.readyState !== WebSocket.OPEN) {
-      console.error("Cannot send message: WebSocket is not connected");
+      console.error(`WebSocketService: Cannot send message to ${this.url}: WebSocket is not connected`);
       return false;
     }
     
     try {
-      this.socket.send(typeof data === 'string' ? data : JSON.stringify(data));
+      const message = typeof data === 'string' ? data : JSON.stringify(data);
+      console.log(`WebSocketService: Sending message to ${this.url}:`, message);
+      this.socket.send(message);
       return true;
     } catch (error) {
-      console.error("Failed to send WebSocket message:", error);
+      console.error(`WebSocketService: Failed to send WebSocket message to ${this.url}:`, error);
       return false;
     }
   }
@@ -139,13 +150,16 @@ export class WebSocketService {
       handlers.push(handler);
     }
     
-    // Retourne une fonction pour se désabonner
+    console.log(`WebSocketService: Subscribed to message type '${type}' on ${this.url}`);
+    
+    // Return unsubscribe function
     return () => {
       const handlers = this.messageHandlers.get(type) || [];
       const index = handlers.indexOf(handler);
       
       if (index !== -1) {
         handlers.splice(index, 1);
+        console.log(`WebSocketService: Unsubscribed from message type '${type}' on ${this.url}`);
       }
       
       if (handlers.length === 0) {
