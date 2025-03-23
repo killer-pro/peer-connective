@@ -1,5 +1,5 @@
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { useWebSocket } from './useWebSocket';
@@ -14,6 +14,16 @@ export const useIncomingCalls = () => {
   const wsHost = import.meta.env.VITE_WS_HOST || window.location.host;
   const wsUrl = `${wsProtocol}//${wsHost}/ws/incoming-calls/`;
   
+  const handleIncomingCall = useCallback((data: any) => {
+    console.log('Incoming call data received:', data);
+    
+    if (data.type === 'incoming_call') {
+      const call = data.call as CallData;
+      console.log('Setting incoming call:', call);
+      setIncomingCall(call);
+    }
+  }, []);
+  
   const { isConnected } = useWebSocket({
     url: wsUrl,
     onMessage: handleIncomingCall,
@@ -21,31 +31,22 @@ export const useIncomingCalls = () => {
     reconnect: true
   });
   
-  function handleIncomingCall(data: any) {
-    console.log('Incoming call data received:', data);
+  const acceptCall = useCallback((callId: number) => {
+    console.log(`Accepting call ${callId}`);
     
-    if (data.type === 'incoming_call') {
-      const call = data.call as CallData;
-      setIncomingCall(call);
-      
-      // Show a toast notification
-      toast.info(`Incoming ${call.call_type} call from ${call.initiator_details.username}`, {
-        duration: 20000,
-        action: {
-          label: 'Answer',
-          onClick: () => acceptCall(call.id),
-        },
-        onDismiss: () => rejectCall(call.id),
-      });
-    }
-  }
-  
-  const acceptCall = (callId: number) => {
-    navigate(`/call/${callId}`);
+    // Clear the incoming call state
     setIncomingCall(null);
-  };
+    
+    // Dismiss any remaining toasts for this call
+    toast.dismiss(`call-${callId}`);
+    
+    // Navigate to the call page
+    navigate(`/call/${callId}`);
+  }, [navigate]);
   
-  const rejectCall = (callId: number) => {
+  const rejectCall = useCallback((callId: number) => {
+    console.log(`Rejecting call ${callId}`);
+    
     // Send API call to reject the call
     fetch(`/api/calls/${callId}/reject/`, {
       method: 'POST',
@@ -57,8 +58,12 @@ export const useIncomingCalls = () => {
       console.error('Error rejecting call:', error);
     });
     
+    // Clear the incoming call state
     setIncomingCall(null);
-  };
+    
+    // Dismiss any remaining toasts for this call
+    toast.dismiss(`call-${callId}`);
+  }, []);
   
   useEffect(() => {
     // Log connection status
