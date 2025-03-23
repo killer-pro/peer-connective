@@ -15,7 +15,7 @@ export interface ScheduledCallDisplay {
   isGroupCall: boolean;
   status: CallStatus;
   description?: string;
-  // Add missing properties that are being used in components
+  // Additional properties
   startTime?: string;
   endTime?: string;
   duration?: string;
@@ -23,7 +23,7 @@ export interface ScheduledCallDisplay {
 }
 
 // Mock contacts for participant selection
-export const mockContacts = [
+export const mockScheduleContacts = [
   { id: '1', name: 'John Doe', avatar: '' },
   { id: '2', name: 'Jane Smith', avatar: '' },
   { id: '3', name: 'Mike Johnson', avatar: '' },

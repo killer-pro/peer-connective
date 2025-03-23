@@ -6,15 +6,16 @@ import { Input } from "@/components/ui/input";
 
 export interface Contact {
   id: string;
-  username: string;
+  name: string;
+  avatar?: string;
+  username: string; 
   email: string;
-  avatar: string;
   status: string;
 }
 
 export interface ParticipantSelectorProps {
   selectedIds: string[];
-  onChange: (selectedIds: string[]) => void;
+  onChange: (contactId: string) => void;
   contacts?: Contact[];
 }
 
@@ -22,6 +23,7 @@ export interface ParticipantSelectorProps {
 const mockContacts: Contact[] = [
   {
     id: "1",
+    name: "Alex Morgan",
     username: "alex.morgan",
     email: "alex.morgan@example.com",
     avatar: "",
@@ -29,6 +31,7 @@ const mockContacts: Contact[] = [
   },
   {
     id: "2",
+    name: "Taylor Swift",
     username: "taylor.swift",
     email: "taylor.swift@example.com",
     avatar: "",
@@ -36,6 +39,7 @@ const mockContacts: Contact[] = [
   },
   {
     id: "3",
+    name: "Chris Evans",
     username: "chris.evans",
     email: "chris.evans@example.com",
     avatar: "",
@@ -43,6 +47,7 @@ const mockContacts: Contact[] = [
   },
   {
     id: "4",
+    name: "Jessica Chen",
     username: "jessica.chen",
     email: "jessica.chen@example.com",
     avatar: "",
@@ -50,6 +55,7 @@ const mockContacts: Contact[] = [
   },
   {
     id: "5",
+    name: "Marcus Johnson",
     username: "marcus.johnson",
     email: "marcus.johnson@example.com",
     avatar: "",
@@ -67,22 +73,19 @@ const ParticipantSelector: React.FC<ParticipantSelectorProps> = ({
   // Filter contacts based on search term
   const filteredContacts = contacts.filter(
     contact => 
+      contact.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
       contact.username.toLowerCase().includes(searchTerm.toLowerCase()) || 
       contact.email.toLowerCase().includes(searchTerm.toLowerCase())
   );
   
   // Toggle selection of a contact
   const toggleContact = (id: string) => {
-    if (selectedIds.includes(id)) {
-      onChange(selectedIds.filter(selectedId => selectedId !== id));
-    } else {
-      onChange([...selectedIds, id]);
-    }
+    onChange(id);
   };
   
   // Remove a selected contact
   const removeContact = (id: string) => {
-    onChange(selectedIds.filter(selectedId => selectedId !== id));
+    onChange(id);
   };
   
   return (
@@ -100,12 +103,12 @@ const ParticipantSelector: React.FC<ParticipantSelectorProps> = ({
                 className="flex items-center gap-1.5 bg-secondary px-2 py-1 rounded-full text-sm"
               >
                 <Avatar className="h-5 w-5">
-                  <AvatarImage src={contact.avatar} alt={contact.username} />
+                  <AvatarImage src={contact.avatar} alt={contact.name} />
                   <AvatarFallback className="text-xs">
-                    {contact.username.charAt(0).toUpperCase()}
+                    {contact.name.charAt(0).toUpperCase()}
                   </AvatarFallback>
                 </Avatar>
-                <span>{contact.username}</span>
+                <span>{contact.name}</span>
                 <button 
                   type="button"
                   onClick={() => removeContact(id)}
@@ -144,13 +147,13 @@ const ParticipantSelector: React.FC<ParticipantSelectorProps> = ({
                   onClick={() => toggleContact(contact.id)}
                 >
                   <Avatar className="h-8 w-8">
-                    <AvatarImage src={contact.avatar} alt={contact.username} />
+                    <AvatarImage src={contact.avatar} alt={contact.name} />
                     <AvatarFallback>
-                      {contact.username.charAt(0).toUpperCase()}
+                      {contact.name.charAt(0).toUpperCase()}
                     </AvatarFallback>
                   </Avatar>
                   <div>
-                    <div className="font-medium">{contact.username}</div>
+                    <div className="font-medium">{contact.name}</div>
                     <div className="text-xs text-muted-foreground">{contact.email}</div>
                   </div>
                   <div className="ml-auto flex items-center">

@@ -1,3 +1,4 @@
 
-// Re-export the correctly named hook
-export { useWebRTC, useWebRTC as default } from './useWebRTC';
+// This file fixes case sensitivity issues by re-exporting from the correct file
+export * from './useWebRtcImplementation';
+export { default } from './useWebRtcImplementation';

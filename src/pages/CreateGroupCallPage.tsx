@@ -16,7 +16,16 @@ import CallTypeSelector from "@/components/call/CallTypeSelector";
 import TimeTypeSelector from "@/components/call/TimeTypeSelector";
 import ParticipantSelector from "@/components/call/ParticipantSelector";
 import SchedulePicker from "@/components/call/SchedulePicker";
-import { mockContacts } from "@/components/schedule/types";
+import { Contact } from "@/components/call/ParticipantSelector";
+
+// Create mock contacts that match the Contact interface
+const mockFormContacts: Contact[] = [
+  { id: "1", name: "John Doe", username: "john.doe", email: "john.doe@example.com", avatar: "", status: "online" },
+  { id: "2", name: "Jane Smith", username: "jane.smith", email: "jane.smith@example.com", avatar: "", status: "offline" },
+  { id: "3", name: "Mike Johnson", username: "mike.johnson", email: "mike.johnson@example.com", avatar: "", status: "online" },
+  { id: "4", name: "Sarah Williams", username: "sarah.williams", email: "sarah.williams@example.com", avatar: "", status: "busy" },
+  { id: "5", name: "David Brown", username: "david.brown", email: "david.brown@example.com", avatar: "", status: "away" },
+];
 
 const CreateGroupCallPage = () => {
   const navigate = useNavigate();
@@ -52,7 +61,7 @@ const CreateGroupCallPage = () => {
         ? `${selectedDate ? format(selectedDate, 'yyyy-MM-dd', { locale: fr }) : ''} ${selectedTime}` 
         : null,
       participants: selectedParticipants.map(id => 
-        mockContacts.find(contact => contact.id === id)?.name
+        mockFormContacts.find(contact => contact.id === id)?.name
       )
     };
     
@@ -105,7 +114,7 @@ const CreateGroupCallPage = () => {
               
               {callType === "private" && (
                 <ParticipantSelector 
-                  contacts={mockContacts}
+                  contacts={mockFormContacts}
                   selectedIds={selectedParticipants}
                   onChange={toggleParticipant}
                 />
