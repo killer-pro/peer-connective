@@ -1,4 +1,3 @@
-
 import { useEffect, useRef, useState } from "react";
 import { useNavigate, useParams, useLocation } from "react-router-dom";
 import {
@@ -46,16 +45,24 @@ const CallPage = () => {
   const [message, setMessage] = useState<string>("");
   const [messages, setMessages] = useState<Array<{sender: string, content: string}>>([]);
 
+  // Verify callId is available
+  const actualCallId = callId || "";
+  if (!actualCallId) {
+    toast.error("Missing call ID");
+    navigate("/calls");
+  }
+
+  console.log("Call ID:", actualCallId);
+
   // Mock data to be replaced with real API calls
   const [callData, setCallData] = useState<any>(
       location.state?.groupCall || {
-        id: location.state?.callId || callId || "unknown",
+        id: actualCallId,
         name: "Conference Call",
         type: location.state?.callType || "video",
       }
   );
 
-console.log("callid:", callId);
   // Use our WebRTC hook
   const {
     isConnected,
@@ -67,7 +74,7 @@ console.log("callid:", callId);
     sendChatMessage,
     endCall
   } = useWebRTC({
-    callId: callId || "146",
+    callId: actualCallId,
     localVideoRef,
     remoteVideoRef,
     onCallConnected: () => {
@@ -76,37 +83,51 @@ console.log("callid:", callId);
     onCallEnded: () => {
       toast.info("Call ended");
       setCallActive(false);
-      // You can add a slight delay before navigation if needed
+      // Add a slight delay before navigation
       setTimeout(() => navigate("/calls"), 1000);
+    },
+    onError: (error) => {
+      console.error("WebRTC error:", error);
+      toast.error("Connection error: " + error.message);
     }
   });
 
   useEffect(() => {
     // Initialize call when component mounts
-    const fetchCallData = async () => {
+    const setupCall = async () => {
       try {
-        if (callId) {
-          console.log("Setting up call with ID:", callId);
-          // Add a slight delay to ensure websocket is connected
+        if (actualCallId) {
+          console.log("Setting up call with ID:", actualCallId);
+          
+          // Check if we're the initiator from the location state
+          const isInitiator = location.state?.isInitiator || false;
+          console.log("Initializing call as initiator:", isInitiator);
+          
+          // Initialize the call with short delay to ensure setup is complete
           setTimeout(() => {
-            const isInitiator = location.state?.isInitiator || false;
-            console.log("Initializing call as initiator:", isInitiator);
             initializeCall(isInitiator);
-          }, 1500);
+          }, 1000);
         } else {
           console.error("No call ID available");
           toast.error("Missing call information");
           navigate("/calls");
         }
       } catch (error) {
-        console.error("Error fetching call data:", error);
+        console.error("Error setting up call:", error);
         toast.error("Failed to initialize call");
       }
     };
 
-    fetchCallData();
-  }, [callId, initializeCall, location.state?.isInitiator, navigate]);
+    setupCall();
+    
+    // Clean up function when component unmounts
+    return () => {
+      console.log("Call page unmounting, cleaning up");
+      endCall();
+    };
+  }, [actualCallId, initializeCall, location.state?.isInitiator, navigate, endCall]);
   
+  // Send chat message
   const sendMessage = () => {
     if (!message.trim()) return;
     
@@ -120,6 +141,7 @@ console.log("callid:", callId);
     setMessage("");
   };
   
+  // Handle ending the call
   const handleEndCall = () => {
     endCall();
     navigate("/calls");
@@ -128,20 +150,28 @@ console.log("callid:", callId);
   // Toggle fullscreen mode
   const toggleFullscreen = () => {
     if (!document.fullscreenElement) {
-      document.documentElement.requestFullscreen();
+      document.documentElement.requestFullscreen().catch(err => {
+        console.error("Could not enter fullscreen mode:", err);
+      });
       setFullscreen(true);
     } else {
       if (document.exitFullscreen) {
-        document.exitFullscreen();
+        document.exitFullscreen().catch(err => {
+          console.error("Could not exit fullscreen mode:", err);
+        });
         setFullscreen(false);
       }
     }
   };
 
+  // Log connection status changes
   useEffect(() => {
     console.log("WebRTC connection status:", isConnected);
   }, [isConnected]);
+  
+  // Check video references
   useEffect(() => {
+    console.log("Video ref check:");
     if (localVideoRef.current) {
       console.log("Local video ref is set", localVideoRef.current);
     } else {

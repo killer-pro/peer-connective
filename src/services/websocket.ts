@@ -21,6 +21,7 @@ export class WebSocketService {
   private reconnectAttempts = 0;
   private reconnectTimeout: number | null = null;
   private messageHandlers: Map<string, WebSocketMessageHandler[]> = new Map();
+  private intentionalClose = false;
   
   constructor(url: string, options: WebSocketOptions = {}) {
     this.url = url;
@@ -34,9 +35,12 @@ export class WebSocketService {
   
   connect(): void {
     if (this.socket && this.socket.readyState === WebSocket.OPEN) {
-      console.warn("WebSocket is already connected");
+      console.warn("WebSocketService: WebSocket is already connected");
       return;
     }
+    
+    // Reset intentional close flag
+    this.intentionalClose = false;
     
     console.log(`WebSocketService: Connecting to ${this.url}`);
     this.socket = new WebSocket(this.url);
@@ -56,21 +60,22 @@ export class WebSocketService {
       if (this.options.onClose) {
         this.options.onClose();
       }
-      const isIntentionalClose = event.code === 1000;
-
-      if (this.options.onClose) {
-        this.options.onClose();
-      }
-      // Attempt to reconnect if enabled
-      if (!isIntentionalClose && this.options.reconnect &&
+      
+      // Only attempt to reconnect if:
+      // 1. It wasn't an intentional close
+      // 2. Reconnect is enabled
+      // 3. We haven't reached max reconnect attempts
+      if (!this.intentionalClose && 
+          this.options.reconnect &&
           (!this.options.maxReconnectAttempts ||
-              this.reconnectAttempts < this.options.maxReconnectAttempts)) {
+           this.reconnectAttempts < this.options.maxReconnectAttempts)) {
+        
         this.reconnectTimeout = window.setTimeout(() => {
           this.reconnectAttempts++;
           console.log(`WebSocketService: Attempting to reconnect (${this.reconnectAttempts}/${this.options.maxReconnectAttempts})`);
           this.connect();
         }, this.options.reconnectInterval);
-      } else if (this.reconnectAttempts >= (this.options.maxReconnectAttempts || 0)) {
+      } else if (this.reconnectAttempts >= (this.options.maxReconnectAttempts || 0) && !this.intentionalClose) {
         toast.error("The connection to the server has been lost. Please refresh the page.");
       }
     };
@@ -89,7 +94,6 @@ export class WebSocketService {
       try {
         data = JSON.parse(event.data);
         console.log(`WebSocketService: Message received from ${this.url}:`, data);
-        console.log(`WebSocketService: Current socket state: ${this.socket?.readyState}`);
       } catch (error) {
         console.error(`WebSocketService: Failed to parse WebSocket message from ${this.url}:`, error);
         return;
@@ -115,6 +119,9 @@ export class WebSocketService {
   }
   
   disconnect(): void {
+    // Set intentional close flag to prevent reconnection attempts
+    this.intentionalClose = true;
+    
     if (this.reconnectTimeout) {
       clearTimeout(this.reconnectTimeout);
       this.reconnectTimeout = null;
@@ -122,7 +129,7 @@ export class WebSocketService {
     
     if (this.socket) {
       console.log(`WebSocketService: Closing connection to ${this.url}`);
-      this.socket.close();
+      this.socket.close(1000, "Normal closure");
       this.socket = null;
     }
   }
@@ -135,7 +142,7 @@ export class WebSocketService {
     
     try {
       const message = typeof data === 'string' ? data : JSON.stringify(data);
-      console.log(`WebSocketService: Sending message to ${this.url}:`, message);
+      console.log(`WebSocketService: Sending message to ${this.url}:`, data);
       this.socket.send(message);
       return true;
     } catch (error) {
@@ -178,7 +185,7 @@ export class WebSocketService {
   }
 }
 
-// Création d'une instance pour les appels vidéo
+// Create WebSocket for video calls
 export const createCallWebSocket = (callId: string, options?: WebSocketOptions) => {
   const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
   const wsHost = import.meta.env.VITE_WS_HOST || window.location.host;

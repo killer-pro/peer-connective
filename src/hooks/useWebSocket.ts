@@ -133,8 +133,13 @@ export const useSignalingWebSocket = (callId: string, options: Omit<UseWebSocket
   const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
   const wsHost = import.meta.env.VITE_WS_HOST || 'localhost:8000';
 
-  // This should point to the signaling endpoint, not the incoming-calls endpoint
+  // This should point to the signaling endpoint
   const wsUrl = `${wsProtocol}//${wsHost}/ws/signaling/${callId}/?token=${authToken}`;
 
-  return useWebSocket({ ...options, url: wsUrl });
+  return useWebSocket({ 
+    ...options, 
+    url: wsUrl,
+    // Add dependencies to ensure proper WebSocket reconnection when needed
+    dependencies: [callId, authToken]
+  });
 };

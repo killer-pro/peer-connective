@@ -27,23 +27,22 @@ export const useWebRTC = ({
   const [micActive, setMicActive] = useState(true);
   const [videoActive, setVideoActive] = useState(true);
   const [isInitiator, setIsInitiator] = useState(false);
-  const sendSignalingMessage = (messageData: any) => {
-    console.log(`Sending signaling message for call ${callId}:`, messageData);
-    const success = send(messageData); // Use the send function from useSignalingWebSocket
-    if (!success) {
-      console.error(`Failed to send signaling message for call ${callId}. WebSocket might not be connected.`);
-    }
-    return success;
-  };
+  
   // RTCPeerConnection and stream references
   const peerConnectionRef = useRef<RTCPeerConnection | null>(null);
   const localStreamRef = useRef<MediaStream | null>(null);
   const remoteStreamRef = useRef<MediaStream | null>(null);
-  console.log(`Initializing WebRTC hook for call ${callId}`);
-
+  
+  // To track sent ICE candidates and prevent duplicates
+  const sentIceCandidatesRef = useRef<Set<string>>(new Set());
+  
+  // For connection management
+  const hasRemoteDescriptionRef = useRef<boolean>(false);
+  const connectionTimeoutRef = useRef<number | null>(null);
+  
   // Chat messages
   const [chatMessages, setChatMessages] = useState<Array<{sender: string, content: string}>>([]);
-
+  
   // Get WebSocket connection
   const { isConnected: wsConnected, send } = useSignalingWebSocket(callId, {
     onOpen: () => {
@@ -62,41 +61,59 @@ export const useWebRTC = ({
     reconnect: true
   });
 
-  useEffect(() => {
-    console.log("WebSocket connected:", wsConnected);
-  }, [wsConnected]);
+  // Send signaling message with validation
+  const sendSignalingMessage = useCallback((messageData: any) => {
+    if (!wsConnected) {
+      console.error(`Cannot send message - WebSocket not connected`);
+      return false;
+    }
+    
+    console.log(`Sending signaling message for call ${callId}:`, messageData);
+    return send(messageData);
+  }, [wsConnected, send, callId]);
 
   // Handle incoming signaling messages
   function handleSignalingMessage(message: any) {
-    console.log('RECEIVED SIGNALING MESSAGE (DETAILED):', {
-      messageType: message.type,
+    if (!message || !message.type) {
+      console.error('Invalid signaling message received:', message);
+      return;
+    }
+    
+    console.log('RECEIVED SIGNALING MESSAGE:', {
+      type: message.type,
       connectionState: peerConnectionRef.current?.connectionState,
       iceConnectionState: peerConnectionRef.current?.iceConnectionState,
       signalingState: peerConnectionRef.current?.signalingState
     });
-    console.log('Received signaling message:', message);
-    console.log('Current peer connection state:', peerConnectionRef.current?.connectionState);
-    console.log('Current WebSocket connected:', wsConnected);
+    
     try {
       if (!peerConnectionRef.current) {
-        console.error('PeerConnection not initialized');
+        console.error('PeerConnection not initialized when receiving', message.type);
         return;
       }
       
       // Handle different message types
       if (message.type === 'offer' && !isInitiator) {
-        console.log('Received offer, setting remote description');
+        console.log('Received offer from initiator');
+        
+        if (peerConnectionRef.current.signalingState !== 'stable') {
+          console.warn('Cannot handle offer in current state:', peerConnectionRef.current.signalingState);
+          return;
+        }
         
         peerConnectionRef.current.setRemoteDescription(new RTCSessionDescription(message.sdp))
-          .then(() => peerConnectionRef.current?.createAnswer())
-          .then(answer => peerConnectionRef.current?.setLocalDescription(answer))
           .then(() => {
-            // Send answer
+            hasRemoteDescriptionRef.current = true;
+            return peerConnectionRef.current!.createAnswer();
+          })
+          .then(answer => peerConnectionRef.current!.setLocalDescription(answer))
+          .then(() => {
+            // Send answer back to initiator
             sendSignalingMessage({
               type: 'answer',
               callId: parseInt(callId),
               call: parseInt(callId),
-              receiver: message.sender,
+              sender: parseInt(callId), // Send as the call recipient
               sdp: peerConnectionRef.current?.localDescription
             });
           })
@@ -106,19 +123,32 @@ export const useWebRTC = ({
           });
       } 
       else if (message.type === 'answer' && isInitiator) {
-        console.log('Received answer, setting remote description');
+        console.log('Received answer from recipient');
         
         peerConnectionRef.current.setRemoteDescription(new RTCSessionDescription(message.sdp))
+          .then(() => {
+            hasRemoteDescriptionRef.current = true;
+            console.log('Remote description set successfully');
+          })
           .catch(error => {
             console.error('Error setting remote description:', error);
             if (onError) onError(error);
           });
       } 
       else if (message.type === 'ice-candidate') {
+        // Only process ICE candidates if we have a remote description
+        if (!hasRemoteDescriptionRef.current) {
+          console.warn('Received ICE candidate before remote description');
+          return;
+        }
+        
         console.log('Received ICE candidate');
         
         const candidate = new RTCIceCandidate(message.candidate);
         peerConnectionRef.current.addIceCandidate(candidate)
+          .then(() => {
+            console.log('ICE candidate added successfully');
+          })
           .catch(error => {
             console.error('Error adding ICE candidate:', error);
             if (onError) onError(error);
@@ -143,6 +173,18 @@ export const useWebRTC = ({
       console.log(`Initializing call ${callId} as ${asInitiator ? 'initiator' : 'participant'}`);
       setIsInitiator(asInitiator);
       
+      // Set up a timeout for connection establishment
+      if (connectionTimeoutRef.current) {
+        clearTimeout(connectionTimeoutRef.current);
+      }
+      
+      connectionTimeoutRef.current = window.setTimeout(() => {
+        if (!isConnected) {
+          toast.error('Connection timeout. Please try again.');
+          if (onError) onError(new Error('Connection timeout'));
+        }
+      }, 30000); // 30 seconds timeout
+      
       // Request media devices if not already acquired
       if (!localStreamRef.current) {
         const constraints = {
@@ -160,6 +202,9 @@ export const useWebRTC = ({
         // Display local video
         if (localVideoRef.current) {
           localVideoRef.current.srcObject = stream;
+          console.log('Local video stream set');
+        } else {
+          console.error('Local video element not found');
         }
         
         if (onCallStarted) onCallStarted();
@@ -167,7 +212,6 @@ export const useWebRTC = ({
       
       // Configure ICE servers
       const iceServers = [
-
         {urls:'stun:stun1.l.google.com:19302'},
         {urls:'stun:stun2.l.google.com:19302'},
         {urls:'stun:stun3.l.google.com:19302'},
@@ -190,8 +234,8 @@ export const useWebRTC = ({
         }
       ];
       
-      // Create RTCPeerConnection
-      console.log('Creating RTCPeerConnection');
+      // Create RTCPeerConnection with ICE servers
+      console.log('Creating RTCPeerConnection with ICE servers');
       const peerConnection = new RTCPeerConnection({ iceServers });
       peerConnectionRef.current = peerConnection;
       
@@ -207,7 +251,7 @@ export const useWebRTC = ({
       
       // Handle remote streams
       peerConnection.ontrack = (event) => {
-        console.log('Remote track received:', event.track);
+        console.log('Remote track received:', event.track.kind);
         
         if (!remoteStreamRef.current) {
           remoteStreamRef.current = new MediaStream();
@@ -215,44 +259,66 @@ export const useWebRTC = ({
           // Display remote video
           if (remoteVideoRef.current) {
             remoteVideoRef.current.srcObject = remoteStreamRef.current;
+            console.log('Remote video stream created');
+          } else {
+            console.error('Remote video element not found');
           }
         }
         
         // Add the track to the remote stream
         remoteStreamRef.current.addTrack(event.track);
+        console.log(`Added ${event.track.kind} track to remote stream`);
         
         setIsConnected(true);
         if (onCallConnected) onCallConnected();
+        
+        // Clear connection timeout
+        if (connectionTimeoutRef.current) {
+          clearTimeout(connectionTimeoutRef.current);
+          connectionTimeoutRef.current = null;
+        }
       };
       
       // Handle ICE candidates
       peerConnection.onicecandidate = (event) => {
         if (event.candidate) {
-          console.log('Generated ICE candidate for connection state:', peerConnection.connectionState);
-
-          // Ensure the WebSocket is connected before sending
+          // Prevent duplicate ICE candidates
+          const candidateStr = JSON.stringify(event.candidate);
+          if (sentIceCandidatesRef.current.has(candidateStr)) {
+            return;
+          }
+          
+          sentIceCandidatesRef.current.add(candidateStr);
+          console.log('Generated ICE candidate:', event.candidate.candidate.substring(0, 50) + '...');
+          
+          // Only send ICE candidates if we have a WebSocket connection
           if (wsConnected) {
             sendSignalingMessage({
               type: 'ice-candidate',
               callId: parseInt(callId),
               call: parseInt(callId),
-              receiver: asInitiator ? parseInt(callId) : undefined,
+              sender: asInitiator ? 'initiator' : 'participant',
               candidate: event.candidate
             });
           } else {
             console.error('Cannot send ICE candidate - WebSocket not connected');
-            // Consider buffering candidates to send when connection is established
           }
         }
       };
       
-      // Handle connection state changes
+      // Connection state changes
       peerConnection.onconnectionstatechange = () => {
         console.log('Connection state changed:', peerConnection.connectionState);
         
         if (peerConnection.connectionState === 'connected') {
           setIsConnected(true);
           if (onCallConnected) onCallConnected();
+          
+          // Clear connection timeout
+          if (connectionTimeoutRef.current) {
+            clearTimeout(connectionTimeoutRef.current);
+            connectionTimeoutRef.current = null;
+          }
         } else if (peerConnection.connectionState === 'disconnected' || 
                   peerConnection.connectionState === 'failed' ||
                   peerConnection.connectionState === 'closed') {
@@ -261,24 +327,44 @@ export const useWebRTC = ({
         }
       };
       
-      // If initiator, create and send offer
+      // ICE connection state changes
+      peerConnection.oniceconnectionstatechange = () => {
+        console.log('ICE connection state changed:', peerConnection.iceConnectionState);
+      };
+      
+      // Signaling state changes
+      peerConnection.onsignalingstatechange = () => {
+        console.log('Signaling state changed:', peerConnection.signalingState);
+      };
+      
+      // If initiator, create and send offer after a short delay
+      // This ensures the signaling connection is established
       if (asInitiator) {
-        console.log('Creating offer as initiator');
-        const offer = await peerConnection.createOffer({
-          offerToReceiveAudio: true,
-          offerToReceiveVideo: true
-        });
-        
-        await peerConnection.setLocalDescription(offer);
-        
-        // Send offer to the peer
-        sendSignalingMessage({
-          type: 'offer',
-          callId: parseInt(callId),
-          call: parseInt(callId),
-          receiver: parseInt(callId), // Django needs the receiver
-          sdp: peerConnection.localDescription
-        });
+        setTimeout(async () => {
+          if (!peerConnectionRef.current) return;
+          
+          console.log('Creating offer as initiator');
+          try {
+            const offer = await peerConnectionRef.current.createOffer({
+              offerToReceiveAudio: true,
+              offerToReceiveVideo: true
+            });
+            
+            await peerConnectionRef.current.setLocalDescription(offer);
+            
+            // Send offer to the recipient
+            sendSignalingMessage({
+              type: 'offer',
+              callId: parseInt(callId),
+              call: parseInt(callId),
+              sender: 'initiator', // Identify as initiator
+              sdp: peerConnectionRef.current.localDescription
+            });
+          } catch (error) {
+            console.error('Error creating offer:', error);
+            if (onError) onError(error as Error);
+          }
+        }, 1000);
       }
       
     } catch (error) {
@@ -286,7 +372,7 @@ export const useWebRTC = ({
       toast.error('Failed to initialize call. Please check your camera and microphone permissions.');
       if (onError) onError(error as Error);
     }
-  }, [callId, videoActive, localVideoRef, remoteVideoRef, onCallConnected, onCallEnded, onCallStarted, onError, send]);
+  }, [callId, videoActive, localVideoRef, remoteVideoRef, wsConnected, sendSignalingMessage, onCallConnected, onCallEnded, onCallStarted, onError, isConnected]);
   
   // Toggle microphone
   const toggleMicrophone = useCallback(() => {
@@ -329,11 +415,17 @@ export const useWebRTC = ({
       sender: 'You',
       content
     }]);
-  }, [callId, send]);
+  }, [callId, sendSignalingMessage]);
   
   // End the call
   const endCall = useCallback(() => {
     console.log('Ending call');
+    
+    // Clear timeout if it exists
+    if (connectionTimeoutRef.current) {
+      clearTimeout(connectionTimeoutRef.current);
+      connectionTimeoutRef.current = null;
+    }
     
     // Close the peer connection
     if (peerConnectionRef.current) {
@@ -373,6 +465,12 @@ export const useWebRTC = ({
   useEffect(() => {
     return () => {
       console.log('Cleaning up WebRTC resources');
+      
+      // Clear timeout if it exists
+      if (connectionTimeoutRef.current) {
+        clearTimeout(connectionTimeoutRef.current);
+        connectionTimeoutRef.current = null;
+      }
       
       // Stop all media tracks
       if (localStreamRef.current) {

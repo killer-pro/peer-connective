@@ -2,7 +2,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
-import { useWebSocket } from './useWebSocket';
+import { useCallWebSocket } from './useWebSocket';
 import { CallData } from '@/services/callService';
 
 export const useIncomingCalls = () => {
@@ -11,11 +11,13 @@ export const useIncomingCalls = () => {
   const authToken = localStorage.getItem('auth_token');
 
   // Connect to the incoming calls WebSocket
-  const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-  const wsUrl = `${wsProtocol}//localhost:8000/ws/incoming-calls/?token=${authToken}`;
-  console.log('Connecting to incoming calls WebSocket:', wsUrl);
+  const { isConnected, send } = useCallWebSocket({
+    onMessage: handleIncomingCall,
+    autoConnect: true,
+    reconnect: true
+  });
 
-  const handleIncomingCall = useCallback((data: any) => {
+  function handleIncomingCall(data: any) {
     console.log('Incoming call data received:', data);
     
     if (data.type === 'incoming_call') {
@@ -23,14 +25,7 @@ export const useIncomingCalls = () => {
       console.log('Setting incoming call:', call);
       setIncomingCall(call);
     }
-  }, []);
-  
-  const { isConnected } = useWebSocket({
-    url: wsUrl,
-    onMessage: handleIncomingCall,
-    autoConnect: true,
-    reconnect: true
-  });
+  }
   
   const acceptCall = useCallback((callId: number) => {
     console.log(`Accepting call ${callId}`);
@@ -42,7 +37,7 @@ export const useIncomingCalls = () => {
     toast.dismiss(`call-${callId}`);
     
     // Navigate to the call page
-    navigate(`/call/${callId}`);
+    navigate(`/call/${callId}`, { state: { isInitiator: false } });
   }, [navigate]);
   
   const rejectCall = useCallback((callId: number) => {
@@ -53,7 +48,7 @@ export const useIncomingCalls = () => {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Token ${localStorage.getItem('auth_token')}`
+        'Authorization': `Token ${authToken}`
       }
     }).catch(error => {
       console.error('Error rejecting call:', error);
@@ -64,12 +59,8 @@ export const useIncomingCalls = () => {
     
     // Dismiss any remaining toasts for this call
     toast.dismiss(`call-${callId}`);
-  }, []);
+  }, [authToken]);
   
-  useEffect(() => {
-    // Log connection status
-    console.log('Incoming calls WebSocket connected:', isConnected);
-  }, [isConnected]);
   const initiateCall = useCallback((userId: number) => {
     console.log(`Initiating call to user ${userId}`);
 
@@ -78,7 +69,7 @@ export const useIncomingCalls = () => {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Token ${localStorage.getItem('auth_token')}`
+        'Authorization': `Token ${authToken}`
       },
       body: JSON.stringify({ recipient_id: userId })
     })
@@ -99,14 +90,19 @@ export const useIncomingCalls = () => {
           toast.error('Failed to initiate call. Please try again.');
           throw error;
         });
-  }, [navigate]);
+  }, [navigate, authToken]);
+
+  useEffect(() => {
+    // Log connection status
+    console.log('Incoming calls WebSocket connected:', isConnected);
+  }, [isConnected]);
+
   return {
     incomingCall,
     acceptCall,
     rejectCall,
     isConnected,
     initiateCall
-
   };
 };
 
