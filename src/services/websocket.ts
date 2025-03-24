@@ -56,11 +56,15 @@ export class WebSocketService {
       if (this.options.onClose) {
         this.options.onClose();
       }
-      
+      const isIntentionalClose = event.code === 1000;
+
+      if (this.options.onClose) {
+        this.options.onClose();
+      }
       // Attempt to reconnect if enabled
-      if (this.options.reconnect && 
-          (!this.options.maxReconnectAttempts || 
-           this.reconnectAttempts < this.options.maxReconnectAttempts)) {
+      if (!isIntentionalClose && this.options.reconnect &&
+          (!this.options.maxReconnectAttempts ||
+              this.reconnectAttempts < this.options.maxReconnectAttempts)) {
         this.reconnectTimeout = window.setTimeout(() => {
           this.reconnectAttempts++;
           console.log(`WebSocketService: Attempting to reconnect (${this.reconnectAttempts}/${this.options.maxReconnectAttempts})`);
@@ -85,6 +89,7 @@ export class WebSocketService {
       try {
         data = JSON.parse(event.data);
         console.log(`WebSocketService: Message received from ${this.url}:`, data);
+        console.log(`WebSocketService: Current socket state: ${this.socket?.readyState}`);
       } catch (error) {
         console.error(`WebSocketService: Failed to parse WebSocket message from ${this.url}:`, error);
         return;

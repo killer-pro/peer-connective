@@ -28,9 +28,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
-// Import from the implementation file directly to avoid case sensitivity issues
 import { useWebRTC } from "@/hooks/useWebRtcImplementation";
-import CallService from "@/services/callService";
 import { toast } from "sonner";
 
 const CallPage = () => {
@@ -50,35 +48,14 @@ const CallPage = () => {
 
   // Mock data to be replaced with real API calls
   const [callData, setCallData] = useState<any>(
-    location.state?.groupCall || {
-      id: callId || "1",
-      name: "Conference Call",
-      type: "video",
-    }
+      location.state?.groupCall || {
+        id: location.state?.callId || callId || "unknown",
+        name: "Conference Call",
+        type: location.state?.callType || "video",
+      }
   );
-  
-  // Define the contact list here
-  const participantsList = [
-    {
-      id: "1",
-      name: "Alex Morgan",
-      avatar: "",
-      status: "online",
-    },
-    {
-      id: "2",
-      name: "James Wilson",
-      avatar: "",
-      status: "offline",
-    },
-    {
-      id: "3",
-      name: "Sarah Johnson",
-      avatar: "",
-      status: "online",
-    },
-  ];
 
+console.log("callid:", callId);
   // Use our WebRTC hook
   const {
     isConnected,
@@ -90,7 +67,7 @@ const CallPage = () => {
     sendChatMessage,
     endCall
   } = useWebRTC({
-    callId: callId || "1",
+    callId: callId || "146",
     localVideoRef,
     remoteVideoRef,
     onCallConnected: () => {
@@ -109,22 +86,26 @@ const CallPage = () => {
     const fetchCallData = async () => {
       try {
         if (callId) {
-          // In a real app, fetch call data from API
-          // const data = await CallService.getCallDetails(parseInt(callId));
-          // setCallData(data);
-          
-          // Initialize the call
-          const isInitiator = location.state?.isInitiator || false;
-          await initializeCall(isInitiator);
+          console.log("Setting up call with ID:", callId);
+          // Add a slight delay to ensure websocket is connected
+          setTimeout(() => {
+            const isInitiator = location.state?.isInitiator || false;
+            console.log("Initializing call as initiator:", isInitiator);
+            initializeCall(isInitiator);
+          }, 1500);
+        } else {
+          console.error("No call ID available");
+          toast.error("Missing call information");
+          navigate("/calls");
         }
       } catch (error) {
         console.error("Error fetching call data:", error);
         toast.error("Failed to initialize call");
       }
     };
-    
+
     fetchCallData();
-  }, [callId, initializeCall, location.state?.isInitiator]);
+  }, [callId, initializeCall, location.state?.isInitiator, navigate]);
   
   const sendMessage = () => {
     if (!message.trim()) return;

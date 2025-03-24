@@ -174,17 +174,21 @@ export function useCallsPage() {
   const handleStartCall = async (contactId: string, callType: "video" | "audio") => {
     try {
       if (!userProfile) return;
-      
+      console.log("userprofile id:"+userProfile.id)
+      console.log("userprofile calltype:"+callType)
+      console.log("userprofile name:"+userProfile.username)
+      console.log("userprofile partcipants:"+contactId)
       const callData = await CallService.startCall({
         initiator: userProfile.id,
         call_type: callType,
         is_group_call: false,
         participants: [parseInt(contactId)],
         start_time: new Date().toISOString(),
-        status: "planned",
+        status: "in_progress",
       });
-
-      navigate("/call", { state: { callId: callData.id, callType } });
+      console.log("callData id"+ callData.id) // renvoie bien le bon id de l'appel qu'il devrait transmettre a /call
+      console.log("calldata participants : "+callData.participants_details)
+      navigate(`/call/${callData.id}`, { state: { callType } });
     } catch (error) {
       console.error("Error starting call:", error);
     }

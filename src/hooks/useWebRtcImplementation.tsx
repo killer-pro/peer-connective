@@ -27,25 +27,56 @@ export const useWebRTC = ({
   const [micActive, setMicActive] = useState(true);
   const [videoActive, setVideoActive] = useState(true);
   const [isInitiator, setIsInitiator] = useState(false);
-  
+  const sendSignalingMessage = (messageData: any) => {
+    console.log(`Sending signaling message for call ${callId}:`, messageData);
+    const success = send(messageData); // Use the send function from useSignalingWebSocket
+    if (!success) {
+      console.error(`Failed to send signaling message for call ${callId}. WebSocket might not be connected.`);
+    }
+    return success;
+  };
   // RTCPeerConnection and stream references
   const peerConnectionRef = useRef<RTCPeerConnection | null>(null);
   const localStreamRef = useRef<MediaStream | null>(null);
   const remoteStreamRef = useRef<MediaStream | null>(null);
-  
+  console.log(`Initializing WebRTC hook for call ${callId}`);
+
   // Chat messages
   const [chatMessages, setChatMessages] = useState<Array<{sender: string, content: string}>>([]);
-  
+
   // Get WebSocket connection
   const { isConnected: wsConnected, send } = useSignalingWebSocket(callId, {
-    onMessage: handleSignalingMessage,
+    onOpen: () => {
+      console.log(`Signaling WebSocket for call ${callId} connected!`);
+    },
+    onMessage: (message) => {
+      console.log(`Received signaling message for call ${callId}:`, message);
+      handleSignalingMessage(message);
+    },
+    onError: (event) => {
+      console.error(`Signaling WebSocket error for call ${callId}:`, event);
+    },
+    onClose: () => {
+      console.log(`Signaling WebSocket for call ${callId} closed`);
+    },
     reconnect: true
   });
-  
+
+  useEffect(() => {
+    console.log("WebSocket connected:", wsConnected);
+  }, [wsConnected]);
+
   // Handle incoming signaling messages
   function handleSignalingMessage(message: any) {
+    console.log('RECEIVED SIGNALING MESSAGE (DETAILED):', {
+      messageType: message.type,
+      connectionState: peerConnectionRef.current?.connectionState,
+      iceConnectionState: peerConnectionRef.current?.iceConnectionState,
+      signalingState: peerConnectionRef.current?.signalingState
+    });
     console.log('Received signaling message:', message);
-    
+    console.log('Current peer connection state:', peerConnectionRef.current?.connectionState);
+    console.log('Current WebSocket connected:', wsConnected);
     try {
       if (!peerConnectionRef.current) {
         console.error('PeerConnection not initialized');
@@ -61,7 +92,7 @@ export const useWebRTC = ({
           .then(answer => peerConnectionRef.current?.setLocalDescription(answer))
           .then(() => {
             // Send answer
-            send({
+            sendSignalingMessage({
               type: 'answer',
               callId: parseInt(callId),
               call: parseInt(callId),
@@ -136,8 +167,27 @@ export const useWebRTC = ({
       
       // Configure ICE servers
       const iceServers = [
-        { urls: 'stun:stun.l.google.com:19302' },
-        { urls: 'stun:stun1.l.google.com:19302' }
+
+        {urls:'stun:stun1.l.google.com:19302'},
+        {urls:'stun:stun2.l.google.com:19302'},
+        {urls:'stun:stun3.l.google.com:19302'},
+        {urls:'stun:stun4.l.google.com:19302'},
+        {urls:'stun:stun01.sipphone.com'},
+        {
+          urls: 'turn:numb.viagenie.ca',
+          credential: 'muazkh',
+          username: 'webrtc@live.com'
+        },
+        {
+          urls: 'turn:192.158.29.39:3478?transport=udp',
+          credential: 'JZEOEt2V3Qb0y27GRntt2u2PAYA=',
+          username: '28224511:1379330808'
+        },
+        {
+          urls: 'turn:192.158.29.39:3478?transport=tcp',
+          credential: 'JZEOEt2V3Qb0y27GRntt2u2PAYA=',
+          username: '28224511:1379330808'
+        }
       ];
       
       // Create RTCPeerConnection
@@ -178,16 +228,21 @@ export const useWebRTC = ({
       // Handle ICE candidates
       peerConnection.onicecandidate = (event) => {
         if (event.candidate) {
-          console.log('Generated ICE candidate:', event.candidate);
-          
-          // Send ICE candidate to the peer
-          send({
-            type: 'ice-candidate',
-            callId: parseInt(callId),
-            call: parseInt(callId),
-            receiver: asInitiator ? parseInt(callId) : undefined, // Django needs the receiver
-            candidate: event.candidate
-          });
+          console.log('Generated ICE candidate for connection state:', peerConnection.connectionState);
+
+          // Ensure the WebSocket is connected before sending
+          if (wsConnected) {
+            sendSignalingMessage({
+              type: 'ice-candidate',
+              callId: parseInt(callId),
+              call: parseInt(callId),
+              receiver: asInitiator ? parseInt(callId) : undefined,
+              candidate: event.candidate
+            });
+          } else {
+            console.error('Cannot send ICE candidate - WebSocket not connected');
+            // Consider buffering candidates to send when connection is established
+          }
         }
       };
       
@@ -217,7 +272,7 @@ export const useWebRTC = ({
         await peerConnection.setLocalDescription(offer);
         
         // Send offer to the peer
-        send({
+        sendSignalingMessage({
           type: 'offer',
           callId: parseInt(callId),
           call: parseInt(callId),
@@ -261,7 +316,7 @@ export const useWebRTC = ({
   
   // Send a chat message
   const sendChatMessage = useCallback((content: string) => {
-    send({
+    sendSignalingMessage({
       type: 'chat',
       callId: parseInt(callId),
       call: parseInt(callId),

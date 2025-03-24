@@ -29,7 +29,7 @@ export const useWebSocket = ({
 }: UseWebSocketOptions) => {
   const [isConnected, setIsConnected] = useState(false);
   const wsRef = useRef<WebSocketService | null>(null);
-  
+
   // Function to connect
   const connect = useCallback(() => {
     if (wsRef.current) {
@@ -116,20 +116,25 @@ export const useWebSocket = ({
   };
 };
 
-// Hook for video call WebSockets
-export const useCallWebSocket = (callId: string, options: Omit<UseWebSocketOptions, 'url'> = {}) => {
+// Hook for notification WebSockets - dedicated to incoming calls
+export const useCallWebSocket = (options: Omit<UseWebSocketOptions, 'url'> = {}) => {
   const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-  const wsHost = import.meta.env.VITE_WS_HOST || window.location.host;
-  const wsUrl = `${wsProtocol}//${wsHost}/ws/call/${callId}/`;
-  
+  const authToken = localStorage.getItem('auth_token');
+  const wsHost = import.meta.env.VITE_WS_HOST || 'localhost:8000';
+
+  const wsUrl = `${wsProtocol}//${wsHost}/ws/incoming-calls/?token=${authToken}`;
+
   return useWebSocket({ ...options, url: wsUrl });
 };
 
-// Hook for WebRTC signaling WebSockets
+// Hook for WebRTC signaling WebSockets - specific to an active call
 export const useSignalingWebSocket = (callId: string, options: Omit<UseWebSocketOptions, 'url'> = {}) => {
+  const authToken = localStorage.getItem('auth_token');
   const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-  const wsHost = import.meta.env.VITE_WS_HOST || window.location.host;
-  const wsUrl = `${wsProtocol}//${wsHost}/ws/signaling/${callId}/`;
-  
+  const wsHost = import.meta.env.VITE_WS_HOST || 'localhost:8000';
+
+  // This should point to the signaling endpoint, not the incoming-calls endpoint
+  const wsUrl = `${wsProtocol}//${wsHost}/ws/signaling/${callId}/?token=${authToken}`;
+
   return useWebSocket({ ...options, url: wsUrl });
 };

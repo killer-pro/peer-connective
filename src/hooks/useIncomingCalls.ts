@@ -8,12 +8,13 @@ import { CallData } from '@/services/callService';
 export const useIncomingCalls = () => {
   const [incomingCall, setIncomingCall] = useState<CallData | null>(null);
   const navigate = useNavigate();
-  
+  const authToken = localStorage.getItem('auth_token');
+
   // Connect to the incoming calls WebSocket
   const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-  const wsHost = import.meta.env.VITE_WS_HOST || window.location.host;
-  const wsUrl = `${wsProtocol}//${wsHost}/ws/incoming-calls/`;
-  
+  const wsUrl = `${wsProtocol}//localhost:8000/ws/incoming-calls/?token=${authToken}`;
+  console.log('Connecting to incoming calls WebSocket:', wsUrl);
+
   const handleIncomingCall = useCallback((data: any) => {
     console.log('Incoming call data received:', data);
     
@@ -69,12 +70,43 @@ export const useIncomingCalls = () => {
     // Log connection status
     console.log('Incoming calls WebSocket connected:', isConnected);
   }, [isConnected]);
-  
+  const initiateCall = useCallback((userId: number) => {
+    console.log(`Initiating call to user ${userId}`);
+
+    // Send API call to start the call
+    return fetch(`/api/calls/initiate/`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Token ${localStorage.getItem('auth_token')}`
+      },
+      body: JSON.stringify({ recipient_id: userId })
+    })
+        .then(response => {
+          if (!response.ok) {
+            throw new Error('Failed to initiate call');
+          }
+          return response.json();
+        })
+        .then(data => {
+          console.log('Call initiated successfully:', data);
+          // Navigate to the call page as initiator
+          navigate(`/call/${data.id}`, { state: { isInitiator: true } });
+          return data;
+        })
+        .catch(error => {
+          console.error('Error initiating call:', error);
+          toast.error('Failed to initiate call. Please try again.');
+          throw error;
+        });
+  }, [navigate]);
   return {
     incomingCall,
     acceptCall,
     rejectCall,
-    isConnected
+    isConnected,
+    initiateCall
+
   };
 };
 
