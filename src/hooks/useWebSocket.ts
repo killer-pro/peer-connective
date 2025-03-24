@@ -3,7 +3,7 @@ import { useEffect, useRef, useState, useCallback } from 'react';
 import { WebSocketService, WebSocketMessageHandler, WebSocketStatusHandler } from '@/services/websocket';
 
 interface UseWebSocketOptions {
-  url: string;
+  url?: string;
   onOpen?: WebSocketStatusHandler;
   onClose?: WebSocketStatusHandler;
   onError?: (event: Event) => void;
@@ -62,6 +62,11 @@ export const useWebSocket = ({
   
   // Effect to manage WebSocket connection
   useEffect(() => {
+    if (!url) {
+      console.warn("WebSocket URL is not provided");
+      return;
+    }
+    
     const handleOpen = () => {
       console.log(`WebSocket connected to ${url}`);
       setIsConnected(true);
@@ -120,7 +125,7 @@ export const useWebSocket = ({
 export const useCallWebSocket = (options: Omit<UseWebSocketOptions, 'url'> = {}) => {
   const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
   const authToken = localStorage.getItem('auth_token');
-  const wsHost = import.meta.env.VITE_WS_HOST || 'localhost:8000';
+  const wsHost = import.meta.env.VITE_WS_HOST || window.location.host;
 
   const wsUrl = `${wsProtocol}//${wsHost}/ws/incoming-calls/?token=${authToken}`;
 
@@ -131,7 +136,7 @@ export const useCallWebSocket = (options: Omit<UseWebSocketOptions, 'url'> = {})
 export const useSignalingWebSocket = (callId: string, options: Omit<UseWebSocketOptions, 'url'> = {}) => {
   const authToken = localStorage.getItem('auth_token');
   const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-  const wsHost = import.meta.env.VITE_WS_HOST || 'localhost:8000';
+  const wsHost = import.meta.env.VITE_WS_HOST || window.location.host;
 
   // This should point to the signaling endpoint
   const wsUrl = `${wsProtocol}//${wsHost}/ws/signaling/${callId}/?token=${authToken}`;

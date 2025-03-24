@@ -53,17 +53,16 @@ export interface ScheduledCall {
   description?: string;
   isGroup: boolean;
   callType: CallType;
-  scheduledTime: string;
+  scheduled_time: string;
 }
 
 export interface SignalingMessage {
   type: 'offer' | 'answer' | 'ice-candidate' | 'incoming_call' | 'chat';
-  call: number;
-  sender: number;
+  call_id?: number;
+  sender?: number;
   receiver?: number;
   sdp?: RTCSessionDescriptionInit;
   candidate?: RTCIceCandidateInit;
-  callId?: number;
   content?: string;
-  senderName?: string;
+  sender_name?: string;
 }

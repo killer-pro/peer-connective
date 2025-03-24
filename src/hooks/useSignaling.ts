@@ -52,20 +52,20 @@ export const useSignaling = ({
     
     try {
       if (message.type === 'offer' && onOffer) {
-        console.log('Received offer');
+        console.log('Received offer:', message.sdp);
         onOffer(message.sdp);
       } 
       else if (message.type === 'answer' && onAnswer) {
-        console.log('Received answer');
+        console.log('Received answer:', message.sdp);
         onAnswer(message.sdp);
       } 
       else if (message.type === 'ice-candidate' && onIceCandidate) {
-        console.log('Received ICE candidate');
+        console.log('Received ICE candidate:', message.candidate);
         onIceCandidate(message.candidate);
       }
       else if (message.type === 'chat' && onChatMessage) {
-        console.log('Received chat message');
-        onChatMessage(message.senderName || 'Participant', message.content);
+        console.log('Received chat message:', message.content);
+        onChatMessage(message.sender_name || 'Participant', message.content);
       }
     } catch (error) {
       console.error('Error processing signaling message:', error);
@@ -83,9 +83,7 @@ export const useSignaling = ({
     console.log('Sending offer:', sdp);
     return send({
       type: 'offer',
-      callId: parseInt(callId),
-      call: parseInt(callId),
-      sender: localStorage.getItem('userId') || 'initiator',
+      call_id: parseInt(callId),
       sdp
     });
   }, [wsConnected, send, callId]);
@@ -100,9 +98,7 @@ export const useSignaling = ({
     console.log('Sending answer:', sdp);
     return send({
       type: 'answer',
-      callId: parseInt(callId),
-      call: parseInt(callId),
-      sender: localStorage.getItem('userId') || 'recipient',
+      call_id: parseInt(callId),
       sdp
     });
   }, [wsConnected, send, callId]);
@@ -117,9 +113,7 @@ export const useSignaling = ({
     console.log('Sending ICE candidate:', candidate);
     return send({
       type: 'ice-candidate',
-      callId: parseInt(callId),
-      call: parseInt(callId),
-      sender: localStorage.getItem('userId') || 'unknown',
+      call_id: parseInt(callId),
       candidate
     });
   }, [wsConnected, send, callId]);
@@ -134,10 +128,8 @@ export const useSignaling = ({
     console.log('Sending chat message:', content);
     return send({
       type: 'chat',
-      callId: parseInt(callId),
-      call: parseInt(callId),
-      content,
-      senderName: 'You' // This will be replaced by the backend with the actual username
+      call_id: parseInt(callId),
+      content
     });
   }, [wsConnected, send, callId]);
   

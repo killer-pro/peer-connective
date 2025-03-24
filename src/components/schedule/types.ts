@@ -51,6 +51,8 @@ export interface ScheduledCallDisplay {
   description?: string;
   isGroup: boolean;
   callType: 'audio' | 'video';
+  // Add this field to fix the error
+  scheduled_time?: string;
 }
 
 // Add mock scheduled calls
@@ -65,7 +67,8 @@ export const mockScheduledCalls: ScheduledCallDisplay[] = [
     participants: mockScheduleContacts,
     description: 'Weekly team sync to discuss progress and blockers',
     isGroup: true,
-    callType: 'video'
+    callType: 'video',
+    scheduled_time: new Date().toISOString()
   },
   {
     id: '2',
@@ -77,6 +80,7 @@ export const mockScheduledCalls: ScheduledCallDisplay[] = [
     participants: [mockScheduleContacts[1]],
     description: 'Performance review',
     isGroup: false,
-    callType: 'video'
+    callType: 'video',
+    scheduled_time: new Date().toISOString()
   }
 ];
