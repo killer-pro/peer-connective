@@ -3,25 +3,13 @@ import React, { useState } from 'react';
 import { z } from 'zod';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { 
-  Form, 
-  FormControl, 
-  FormField, 
-  FormItem, 
-  FormLabel, 
-  FormMessage 
-} from '@/components/ui/form';
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
-import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Button } from '@/components/ui/button';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Calendar } from '@/components/ui/calendar';
-import { format } from 'date-fns';
-import { CalendarIcon, Clock } from 'lucide-react';
-import TimeTypeSelector from '@/components/call/TimeTypeSelector';
-import CallTypeSelector from '@/components/call/CallTypeSelector';
-import ParticipantSelector from '@/components/call/ParticipantSelector';
-import {mockContacts} from "@/types/contact.ts";
+
+import { DatePicker, TimePicker } from './DateTimePicker';
+import CallTypeSelection, { FrequencySelection } from './CallTypeSelection';
+import ParticipantSelect from './ParticipantSelect';
 
 // Schema for form validation
 const formSchema = z.object({
@@ -68,9 +56,9 @@ const ScheduleForm: React.FC<ScheduleFormProps> = ({ onSchedule, onCancel }) => 
   };
   
   // Function to handle time selection
-  const handleTimeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setSelectedTime(e.target.value);
-    form.setValue('time', e.target.value);
+  const handleTimeChange = (time: string) => {
+    setSelectedTime(time);
+    form.setValue('time', time);
   };
   
   // Function to handle participant selection
@@ -101,26 +89,10 @@ const ScheduleForm: React.FC<ScheduleFormProps> = ({ onSchedule, onCancel }) => 
           control={form.control}
           name="callType"
           render={({ field }) => (
-            <FormItem>
-              <FormLabel>Call Type</FormLabel>
-              <FormControl>
-                <RadioGroup
-                  onValueChange={field.onChange}
-                  value={field.value}
-                  className="flex gap-4"
-                >
-                  <div className="flex items-center space-x-2">
-                    <RadioGroupItem value="audio" id="audio" />
-                    <label htmlFor="audio">Audio</label>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <RadioGroupItem value="video" id="video" />
-                    <label htmlFor="video">Video</label>
-                  </div>
-                </RadioGroup>
-              </FormControl>
-              <FormMessage />
-            </FormItem>
+            <CallTypeSelection 
+              value={field.value} 
+              onChange={field.onChange} 
+            />
           )}
         />
         
@@ -129,26 +101,10 @@ const ScheduleForm: React.FC<ScheduleFormProps> = ({ onSchedule, onCancel }) => 
           control={form.control}
           name="isRecurring"
           render={({ field }) => (
-            <FormItem>
-              <FormLabel>Frequency</FormLabel>
-              <FormControl>
-                <RadioGroup
-                  onValueChange={field.onChange}
-                  value={field.value}
-                  className="flex gap-4"
-                >
-                  <div className="flex items-center space-x-2">
-                    <RadioGroupItem value="one-time" id="one-time" />
-                    <label htmlFor="one-time">One-time</label>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <RadioGroupItem value="recurring" id="recurring" />
-                    <label htmlFor="recurring">Recurring</label>
-                  </div>
-                </RadioGroup>
-              </FormControl>
-              <FormMessage />
-            </FormItem>
+            <FrequencySelection 
+              value={field.value} 
+              onChange={field.onChange} 
+            />
           )}
         />
         
@@ -157,37 +113,10 @@ const ScheduleForm: React.FC<ScheduleFormProps> = ({ onSchedule, onCancel }) => 
           control={form.control}
           name="date"
           render={({ field }) => (
-            <FormItem className="flex flex-col">
-              <FormLabel>Date</FormLabel>
-              <Popover>
-                <PopoverTrigger asChild>
-                  <FormControl>
-                    <Button
-                      variant="outline"
-                      className="w-full pl-3 text-left font-normal flex justify-between items-center"
-                    >
-                      {field.value ? (
-                        format(field.value, "PPP")
-                      ) : (
-                        <span>Pick a date</span>
-                      )}
-                      <CalendarIcon className="h-4 w-4 opacity-50" />
-                    </Button>
-                  </FormControl>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0" align="start">
-                  <Calendar
-                    mode="single"
-                    selected={field.value}
-                    onSelect={field.onChange}
-                    disabled={(date) => date < new Date()}
-                    initialFocus
-                    className="pointer-events-auto"
-                  />
-                </PopoverContent>
-              </Popover>
-              <FormMessage />
-            </FormItem>
+            <DatePicker 
+              date={field.value} 
+              onDateChange={field.onChange} 
+            />
           )}
         />
         
@@ -196,21 +125,10 @@ const ScheduleForm: React.FC<ScheduleFormProps> = ({ onSchedule, onCancel }) => 
           control={form.control}
           name="time"
           render={({ field }) => (
-            <FormItem>
-              <FormLabel>Time</FormLabel>
-              <FormControl>
-                <div className="relative">
-                  <Input
-                    type="time"
-                    {...field}
-                    onChange={handleTimeChange}
-                    className="pl-10"
-                  />
-                  <Clock className="absolute left-3 top-2.5 h-5 w-5 text-muted-foreground" />
-                </div>
-              </FormControl>
-              <FormMessage />
-            </FormItem>
+            <TimePicker 
+              time={field.value} 
+              onTimeChange={handleTimeChange}
+            />
           )}
         />
         
@@ -219,27 +137,10 @@ const ScheduleForm: React.FC<ScheduleFormProps> = ({ onSchedule, onCancel }) => 
           control={form.control}
           name="participantIds"
           render={({ field }) => (
-            <FormItem>
-              <FormLabel>Participants</FormLabel>
-              <FormControl>
-                <select 
-                  multiple 
-                  className="w-full h-32 rounded-md border border-input bg-background px-3 py-2"
-                  value={field.value}
-                  onChange={(e) => {
-                    const options = Array.from(e.target.selectedOptions, option => option.value);
-                    field.onChange(options);
-                  }}
-                >
-                  {mockContacts.map(contact => (
-                    <option key={contact.id} value={contact.id}>
-                      {contact.name}
-                    </option>
-                  ))}
-                </select>
-              </FormControl>
-              <FormMessage />
-            </FormItem>
+            <ParticipantSelect 
+              value={field.value} 
+              onChange={handleParticipantChange}
+            />
           )}
         />
         

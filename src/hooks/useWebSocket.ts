@@ -1,150 +1,188 @@
+import { useEffect, useCallback, useRef, useState } from 'react';
 
-import { useEffect, useRef, useState, useCallback } from 'react';
-import { WebSocketService, WebSocketMessageHandler, WebSocketStatusHandler } from '@/services/websocket';
+// Mock implementation for demonstration purposes
+const createMockWebSocket = (url: string) => {
+  const socket = {
+    url,
+    readyState: WebSocket.CONNECTING,
+    onopen: null as any,
+    onmessage: null as any,
+    onclose: null as any,
+    onerror: null as any,
+    send: (data: any) => {
+      console.log(`[MockWebSocket] Sending data to ${url}:`, data);
+      return true;
+    },
+    close: () => {
+      console.log(`[MockWebSocket] Closing connection to ${url}`);
+      if (socket.onclose) {
+        socket.onclose({ code: 1000, reason: 'Normal closure', wasClean: true });
+      }
+      socket.readyState = WebSocket.CLOSED;
+    }
+  };
 
-interface UseWebSocketOptions {
-  url?: string;
-  onOpen?: WebSocketStatusHandler;
-  onClose?: WebSocketStatusHandler;
+  // Simulate connection
+  setTimeout(() => {
+    socket.readyState = WebSocket.OPEN;
+    if (socket.onopen) {
+      socket.onopen({});
+    }
+  }, 500);
+
+  return socket as unknown as WebSocket;
+};
+
+interface WebSocketOptions {
+  onOpen?: (event: Event) => void;
+  onMessage?: (data: any) => void;
+  onClose?: (event: CloseEvent) => void;
   onError?: (event: Event) => void;
-  onMessage?: WebSocketMessageHandler;
-  autoConnect?: boolean;
   reconnect?: boolean;
   reconnectInterval?: number;
   maxReconnectAttempts?: number;
-  dependencies?: any[];
 }
 
-export const useWebSocket = ({
-  url,
-  onOpen,
-  onClose,
-  onError,
-  onMessage,
-  autoConnect = true,
-  reconnect = true,
-  reconnectInterval = 3000,
-  maxReconnectAttempts = 5,
-  dependencies = []
-}: UseWebSocketOptions) => {
-  const [isConnected, setIsConnected] = useState(false);
-  const wsRef = useRef<WebSocketService | null>(null);
+export const useWebSocket = (url: string, options: WebSocketOptions = {}) => {
+  const {
+    onOpen,
+    onMessage,
+    onClose,
+    onError,
+    reconnect = true,
+    reconnectInterval = 5000,
+    maxReconnectAttempts = 5
+  } = options;
 
-  // Function to connect
+  const socketRef = useRef<WebSocket | null>(null);
+  const reconnectAttemptsRef = useRef(0);
+  const reconnectTimerRef = useRef<number | null>(null);
+  
+  const [isConnected, setIsConnected] = useState(false);
+
+  // Connect to WebSocket
   const connect = useCallback(() => {
-    if (wsRef.current) {
-      wsRef.current.connect();
+    // Close existing connection if there is one
+    if (socketRef.current) {
+      socketRef.current.close();
     }
-  }, []);
-  
-  // Function to disconnect
-  const disconnect = useCallback(() => {
-    if (wsRef.current) {
-      wsRef.current.disconnect();
+
+    try {
+      console.log(`Connecting to WebSocket: ${url}`);
+      
+      // In a production environment, we'd use a real WebSocket
+      // socketRef.current = new WebSocket(url);
+      
+      // For development/testing, we'll use a mock
+      socketRef.current = createMockWebSocket(url);
+      
+      socketRef.current.onopen = (event) => {
+        console.log(`WebSocket connection established: ${url}`);
+        reconnectAttemptsRef.current = 0;
+        setIsConnected(true);
+        if (onOpen) onOpen(event);
+      };
+      
+      socketRef.current.onmessage = (event) => {
+        let data;
+        try {
+          data = typeof event.data === 'string' ? JSON.parse(event.data) : event.data;
+        } catch (e) {
+          console.error('Error parsing WebSocket message:', e);
+          data = event.data;
+        }
+        
+        if (onMessage) onMessage(data);
+      };
+      
+      socketRef.current.onclose = (event) => {
+        console.log(`WebSocket connection closed: ${url}`, event);
+        setIsConnected(false);
+        
+        if (onClose) onClose(event);
+        
+        // Attempt to reconnect if enabled and not a normal closure
+        if (reconnect && event.code !== 1000 && event.code !== 1001) {
+          attemptReconnect();
+        }
+      };
+      
+      socketRef.current.onerror = (event) => {
+        console.error(`WebSocket error: ${url}`, event);
+        if (onError) onError(event);
+      };
+    } catch (error) {
+      console.error('Error creating WebSocket connection:', error);
+      if (onError) onError(new Event('error'));
     }
-  }, []);
-  
-  // Function to send a message
-  const send = useCallback((data: unknown) => {
-    if (wsRef.current) {
-      return wsRef.current.send(data);
-    }
-    return false;
-  }, []);
-  
-  // Function to subscribe to a specific message type
-  const subscribe = useCallback((type: string, handler: WebSocketMessageHandler) => {
-    if (wsRef.current) {
-      return wsRef.current.subscribe(type, handler);
-    }
-    return () => {};
-  }, []);
-  
-  // Effect to manage WebSocket connection
-  useEffect(() => {
-    if (!url) {
-      console.warn("WebSocket URL is not provided");
+  }, [url, onOpen, onMessage, onClose, onError, reconnect]);
+
+  // Attempt to reconnect
+  const attemptReconnect = useCallback(() => {
+    if (reconnectAttemptsRef.current >= maxReconnectAttempts) {
+      console.log(`Max reconnect attempts (${maxReconnectAttempts}) reached.`);
       return;
     }
     
-    const handleOpen = () => {
-      console.log(`WebSocket connected to ${url}`);
-      setIsConnected(true);
-      if (onOpen) onOpen();
-    };
-    
-    const handleClose = () => {
-      console.log(`WebSocket disconnected from ${url}`);
-      setIsConnected(false);
-      if (onClose) onClose();
-    };
-    
-    const handleMessage = (data: any) => {
-      console.log(`WebSocket message received from ${url}:`, data);
-      if (onMessage) onMessage(data);
-    };
-    
-    const handleError = (event: Event) => {
-      console.error(`WebSocket error on ${url}:`, event);
-      if (onError) onError(event);
-    };
-    
-    wsRef.current = new WebSocketService(url, {
-      onOpen: handleOpen,
-      onClose: handleClose,
-      onError: handleError,
-      onMessage: handleMessage,
-      reconnect,
-      reconnectInterval,
-      maxReconnectAttempts
-    });
-    
-    if (autoConnect) {
-      console.log(`Connecting WebSocket to ${url}`);
-      wsRef.current.connect();
+    if (reconnectTimerRef.current !== null) {
+      clearTimeout(reconnectTimerRef.current);
     }
     
+    reconnectTimerRef.current = window.setTimeout(() => {
+      reconnectAttemptsRef.current += 1;
+      console.log(`Attempting to reconnect (${reconnectAttemptsRef.current}/${maxReconnectAttempts})...`);
+      connect();
+    }, reconnectInterval);
+  }, [connect, maxReconnectAttempts, reconnectInterval]);
+
+  // Send data through the WebSocket
+  const send = useCallback((data: any): boolean => {
+    if (!socketRef.current || socketRef.current.readyState !== WebSocket.OPEN) {
+      console.error('Cannot send message - WebSocket is not open');
+      return false;
+    }
+    
+    try {
+      const message = typeof data === 'string' ? data : JSON.stringify(data);
+      socketRef.current.send(message);
+      return true;
+    } catch (error) {
+      console.error('Error sending WebSocket message:', error);
+      return false;
+    }
+  }, []);
+
+  // Close the WebSocket connection
+  const close = useCallback(() => {
+    if (socketRef.current) {
+      socketRef.current.close();
+    }
+    
+    if (reconnectTimerRef.current !== null) {
+      clearTimeout(reconnectTimerRef.current);
+      reconnectTimerRef.current = null;
+    }
+  }, []);
+
+  // Connect when component mounts
+  useEffect(() => {
+    connect();
+    
+    // Clean up on unmount
     return () => {
-      if (wsRef.current) {
-        wsRef.current.disconnect();
-        wsRef.current = null;
-      }
+      close();
     };
-  }, [url, onOpen, onClose, onError, onMessage, autoConnect, reconnect, reconnectInterval, maxReconnectAttempts, ...dependencies]);
-  
+  }, [connect, close]);
+
   return {
     isConnected,
-    connect,
-    disconnect,
     send,
-    subscribe
+    close
   };
 };
 
-// Hook for notification WebSockets - dedicated to incoming calls
-export const useCallWebSocket = (options: Omit<UseWebSocketOptions, 'url'> = {}) => {
-  const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-  const authToken = localStorage.getItem('auth_token');
-  const wsHost = import.meta.env.VITE_WS_HOST || window.location.host;
-
-  const wsUrl = `${wsProtocol}//${wsHost}/ws/incoming-calls/?token=${authToken}`;
-
-  return useWebSocket({ ...options, url: wsUrl });
-};
-
-// Hook for WebRTC signaling WebSockets - specific to an active call
-export const useSignalingWebSocket = (callId: string, options: Omit<UseWebSocketOptions, 'url'> = {}) => {
-  const authToken = localStorage.getItem('auth_token');
-  const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-  const wsHost = import.meta.env.VITE_WS_HOST || window.location.host;
-
-  // This should point to the signaling endpoint
-  const wsUrl = `${wsProtocol}//${wsHost}/ws/signaling/${callId}/?token=${authToken}`;
-
-  return useWebSocket({ 
-    ...options, 
-    url: wsUrl,
-    // Add dependencies to ensure proper WebSocket reconnection when needed
-    dependencies: [callId, authToken]
-  });
+// For signaling server specifically
+export const useSignalingWebSocket = (callId: string, options: WebSocketOptions = {}) => {
+  const url = `wss://api.yourdomain.com/ws/signaling/${callId}/`;
+  return useWebSocket(url, options);
 };

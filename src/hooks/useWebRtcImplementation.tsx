@@ -1,11 +1,11 @@
 
-import { useCallback, useEffect, useRef, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useCallback, useEffect, useRef } from 'react';
+import { useParams } from 'react-router-dom';
 import { toast } from 'sonner';
 import { useSignaling } from './useSignaling';
 import { usePeerConnection } from './usePeerConnection';
 import { useMediaDevices } from './useMediaDevices';
-import CallService from '@/services/callService';
+import { useCallState } from './useCallState';
 
 interface UseWebRTCReturn {
   localVideoRef: React.RefObject<HTMLVideoElement>;
@@ -22,10 +22,14 @@ interface UseWebRTCReturn {
 
 const useWebRTC = (isInitiator: boolean = false): UseWebRTCReturn => {
   const { callId } = useParams<{ callId: string }>();
-  const navigate = useNavigate();
   
-  const [callStatus, setCallStatus] = useState<'connecting' | 'connected' | 'disconnected'>('connecting');
-  const [chatMessages, setChatMessages] = useState<{ sender: string; content: string; timestamp: Date }[]>([]);
+  const {
+    status: callStatus,
+    chatMessages,
+    addChatMessage,
+    endCall,
+    handleConnectionStateChange
+  } = useCallState(callId);
 
   const localVideoRef = useRef<HTMLVideoElement>(null);
   const remoteVideoRef = useRef<HTMLVideoElement>(null);
@@ -60,18 +64,9 @@ const useWebRTC = (isInitiator: boolean = false): UseWebRTCReturn => {
     sendChatMessage
   } = useSignaling({
     callId: callId || '0',
-    onOffer: (sdp) => {
-      console.log('Offer received from peer, setting remote description');
-      handleOffer(sdp);
-    },
-    onAnswer: (sdp) => {
-      console.log('Answer received from peer, setting remote description');
-      handleAnswer(sdp);
-    },
-    onIceCandidate: (candidate) => {
-      console.log('ICE candidate received from peer');
-      handleRemoteIceCandidate(candidate);
-    },
+    onOffer: handleOffer,
+    onAnswer: handleAnswer,
+    onIceCandidate: handleRemoteIceCandidate,
     onChatMessage: (sender, content) => {
       console.log(`Chat message from ${sender}: ${content}`);
       addChatMessage(sender, content);
@@ -102,23 +97,7 @@ const useWebRTC = (isInitiator: boolean = false): UseWebRTCReturn => {
         remoteVideoRef.current.srcObject = stream;
       }
     },
-    onConnectionStateChange: (state) => {
-      console.log(`Peer connection state changed to ${state}`);
-      
-      if (state === 'connected') {
-        setCallStatus('connected');
-        toast.success('Call connected');
-      } else if (state === 'disconnected' || state === 'failed' || state === 'closed') {
-        setCallStatus('disconnected');
-        
-        if (state !== 'closed') {
-          toast.error('Call disconnected');
-          setTimeout(() => {
-            endCall();
-          }, 1000);
-        }
-      }
-    },
+    onConnectionStateChange: handleConnectionStateChange,
     onIceCandidate: (candidate) => {
       console.log('Local ICE candidate generated, sending to peer');
       sendIceCandidate(candidate);
@@ -128,6 +107,43 @@ const useWebRTC = (isInitiator: boolean = false): UseWebRTCReturn => {
       toast.error('Connection error');
     }
   });
+
+  // Handle receiving an offer (as the recipient)
+  const handleOffer = useCallback(async (sdp: RTCSessionDescriptionInit) => {
+    console.log('Handling received offer');
+    if (!isInitiator) {
+      await setRemoteDescription(sdp);
+      
+      const answer = await createAnswer();
+      if (answer) {
+        console.log('Sending answer to offer');
+        sendAnswer(answer);
+      }
+    }
+  }, [isInitiator, setRemoteDescription, createAnswer, sendAnswer]);
+
+  // Handle receiving an answer (as the initiator)
+  const handleAnswer = useCallback(async (sdp: RTCSessionDescriptionInit) => {
+    console.log('Handling received answer');
+    if (isInitiator) {
+      await setRemoteDescription(sdp);
+    }
+  }, [isInitiator, setRemoteDescription]);
+
+  // Handle remote ICE candidates
+  const handleRemoteIceCandidate = useCallback(async (candidate: RTCIceCandidateInit) => {
+    console.log('Adding remote ICE candidate');
+    if (hasRemoteDescription()) {
+      await addIceCandidate(candidate);
+    } else {
+      console.warn('Postponing adding ICE candidate until remote description is set');
+      setTimeout(() => {
+        if (hasRemoteDescription()) {
+          addIceCandidate(candidate);
+        }
+      }, 1000);
+    }
+  }, [addIceCandidate, hasRemoteDescription]);
 
   // Initialize media devices on component mount
   useEffect(() => {
@@ -187,56 +203,6 @@ const useWebRTC = (isInitiator: boolean = false): UseWebRTCReturn => {
     }
   }, [localStream]);
 
-  // Handle connection state changes
-  useEffect(() => {
-    console.log(`WebRTC connection state: ${connectionState}`);
-  }, [connectionState]);
-
-  // Handle receiving an offer (as the recipient)
-  const handleOffer = useCallback(async (sdp: RTCSessionDescriptionInit) => {
-    console.log('Handling received offer');
-    if (!isInitiator) {
-      await setRemoteDescription(sdp);
-      
-      const answer = await createAnswer();
-      if (answer) {
-        console.log('Sending answer to offer');
-        sendAnswer(answer);
-      }
-    }
-  }, [isInitiator, setRemoteDescription, createAnswer, sendAnswer]);
-
-  // Handle receiving an answer (as the initiator)
-  const handleAnswer = useCallback(async (sdp: RTCSessionDescriptionInit) => {
-    console.log('Handling received answer');
-    if (isInitiator) {
-      await setRemoteDescription(sdp);
-    }
-  }, [isInitiator, setRemoteDescription]);
-
-  // Handle remote ICE candidates
-  const handleRemoteIceCandidate = useCallback(async (candidate: RTCIceCandidateInit) => {
-    console.log('Adding remote ICE candidate');
-    if (hasRemoteDescription()) {
-      await addIceCandidate(candidate);
-    } else {
-      console.warn('Postponing adding ICE candidate until remote description is set');
-      setTimeout(() => {
-        if (hasRemoteDescription()) {
-          addIceCandidate(candidate);
-        }
-      }, 1000);
-    }
-  }, [addIceCandidate, hasRemoteDescription]);
-
-  // Add chat message to the list
-  const addChatMessage = useCallback((sender: string, content: string) => {
-    setChatMessages(prev => [
-      ...prev,
-      { sender, content, timestamp: new Date() }
-    ]);
-  }, []);
-
   // Send a chat message
   const handleSendChatMessage = useCallback((content: string) => {
     if (!content.trim()) return;
@@ -250,32 +216,13 @@ const useWebRTC = (isInitiator: boolean = false): UseWebRTCReturn => {
     sendChatMessage(content);
   }, [addChatMessage, sendChatMessage]);
 
-  // End the call
-  const endCall = useCallback(async () => {
-    console.log('Ending call');
-    
-    // Close peer connection
-    closePeerConnection();
-    
-    // Stop media streams
-    stopStream();
-    
-    // Update UI state
-    setCallStatus('disconnected');
-    
-    // Call the API to end the call
-    if (callId) {
-      try {
-        await CallService.endCall(parseInt(callId));
-        console.log('Call ended successfully');
-      } catch (error) {
-        console.error('Error ending call:', error);
-      }
-    }
-    
-    // Navigate back to calls page
-    navigate('/calls', { replace: true });
-  }, [callId, navigate, closePeerConnection, stopStream]);
+  // Clean up resources
+  useEffect(() => {
+    return () => {
+      closePeerConnection();
+      stopStream();
+    };
+  }, []);
 
   return {
     localVideoRef,

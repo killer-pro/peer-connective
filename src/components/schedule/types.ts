@@ -51,8 +51,17 @@ export interface ScheduledCallDisplay {
   description?: string;
   isGroup: boolean;
   callType: 'audio' | 'video';
-  // Add this field to fix the error
-  scheduled_time?: string;
+  scheduled_time: string;
+}
+
+// Add the form values interface
+export interface ScheduleFormValues {
+  title: string;
+  callType: 'audio' | 'video';
+  isRecurring: 'one-time' | 'recurring';
+  date: Date;
+  time: string;
+  participantIds: string[];
 }
 
 // Add mock scheduled calls

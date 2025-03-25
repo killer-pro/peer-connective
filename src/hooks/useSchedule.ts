@@ -1,79 +1,76 @@
 
-import { useState } from "react";
-import { addDays, startOfWeek, isSameDay } from "date-fns";
-import { ScheduledCallDisplay } from "@/components/schedule/types";
-import { useToast } from "@/components/ui/use-toast";
-import { format } from "date-fns";
+import { useState, useCallback } from 'react';
+import { startOfWeek, eachDayOfInterval, addDays, format, isSameDay } from 'date-fns';
+import { ScheduledCallDisplay, ScheduleFormValues } from '@/components/schedule/types';
+import { toast } from 'sonner';
 
-export function useSchedule(initialCalls: ScheduledCallDisplay[] = []) {
-  const [date, setDate] = useState<Date>(new Date());
-  const [scheduledCalls, setScheduledCalls] = useState<ScheduledCallDisplay[]>(initialCalls);
-  const { toast } = useToast();
+export const useSchedule = (initialCalls: ScheduledCallDisplay[] = []) => {
+  const [date, setDate] = useState(new Date());
+  const [calls, setCalls] = useState<ScheduledCallDisplay[]>(initialCalls);
 
-  // Generate an array of dates for the week view
-  const currentWeek = Array(7)
-    .fill(0)
-    .map((_, i) => addDays(startOfWeek(date), i));
+  // Get the current week's days
+  const currentWeek = eachDayOfInterval({
+    start: startOfWeek(date),
+    end: addDays(startOfWeek(date), 6)
+  });
 
-  // Filter calls for the selected date
-  const callsForSelectedDate = scheduledCalls.filter(call => 
-    call.date && isSameDay(new Date(call.date), date)
-  );
+  // Filter calls for the currently selected date
+  const callsForSelectedDate = calls.filter((call) => {
+    const callDate = new Date(call.date);
+    return isSameDay(callDate, date);
+  });
 
-  const handleScheduleCall = (values: any) => {
+  // Handle scheduling a new call
+  const handleScheduleCall = useCallback((values: ScheduleFormValues) => {
     try {
-      const startTime = values.time || "12:00";
-      const [hours, minutes] = startTime.split(":").map(Number);
+      const newId = String(calls.length + 1);
       
-      // Calculate end time (assume 30 min duration)
-      const endHours = hours + Math.floor((minutes + 30) / 60);
-      const endMinutes = (minutes + 30) % 60;
-      const endTime = `${endHours.toString().padStart(2, '0')}:${endMinutes.toString().padStart(2, '0')}`;
+      // Extract hours and minutes from time string
+      const [hours, minutes] = values.time.split(':').map(Number);
       
+      // Create a scheduled_time by combining date and time
+      const scheduledTime = new Date(values.date);
+      scheduledTime.setHours(hours);
+      scheduledTime.setMinutes(minutes);
+      
+      // Create the new call
       const newCall: ScheduledCallDisplay = {
-        id: `call-${Date.now()}`,
-        title: values.title || "Untitled Call",
-        scheduledTime: values.date || new Date(),
-        date: values.date || new Date(),
-        startTime: startTime,
-        endTime: endTime,
-        duration: "30 minutes",
-        participants: values.participantIds?.map((id: string) => ({
-          id,
-          name: `User ${id}`, // This would be replaced with actual user data
-          avatar: ""
-        })) || [],
-        description: "",
-        isGroupCall: values.participantIds?.length > 1 || false,
-        callType: values.callType || "video",
-        status: "planned"
+        id: newId,
+        title: values.title,
+        date: values.date,
+        startTime: values.time,
+        endTime: `${(hours + 1).toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`,
+        duration: '1h',
+        participants: values.participantIds.map(id => ({ id, name: `Participant ${id}` })),
+        description: 'Scheduled via app',
+        isGroup: values.participantIds.length > 1,
+        callType: values.callType,
+        scheduled_time: scheduledTime.toISOString()
       };
+
+      // Update the calls state
+      setCalls(prev => [...prev, newCall]);
       
-      setScheduledCalls([...scheduledCalls, newCall]);
+      // Show success notification
+      toast.success('Call scheduled successfully');
       
-      toast({
-        title: "Call Scheduled",
-        description: `${newCall.title} has been scheduled for ${format(new Date(newCall.scheduledTime), "PPP")} at ${newCall.startTime}`
-      });
+      // Navigate to the date of the scheduled call
+      setDate(values.date);
       
       return true;
     } catch (error) {
-      console.error("Error scheduling call:", error);
-      toast({
-        title: "Error",
-        description: "Failed to schedule call. Please try again.",
-        variant: "destructive"
-      });
+      console.error('Error scheduling call:', error);
+      toast.error('Failed to schedule call');
       return false;
     }
-  };
+  }, [calls]);
 
   return {
     date,
     setDate,
-    scheduledCalls,
     currentWeek,
+    calls,
     callsForSelectedDate,
     handleScheduleCall
   };
-}
+};
