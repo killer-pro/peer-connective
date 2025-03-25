@@ -1,10 +1,11 @@
+
 import { useEffect, useCallback, useRef, useState } from 'react';
 
 // Mock implementation for demonstration purposes
 const createMockWebSocket = (url: string) => {
   const socket = {
     url,
-    readyState: WebSocket.CONNECTING,
+    readyState: 0, // WebSocket.CONNECTING
     onopen: null as any,
     onmessage: null as any,
     onclose: null as any,
@@ -18,13 +19,13 @@ const createMockWebSocket = (url: string) => {
       if (socket.onclose) {
         socket.onclose({ code: 1000, reason: 'Normal closure', wasClean: true });
       }
-      socket.readyState = WebSocket.CLOSED;
+      socket.readyState = 3; // WebSocket.CLOSED
     }
   };
 
   // Simulate connection
   setTimeout(() => {
-    socket.readyState = WebSocket.OPEN;
+    socket.readyState = 1; // WebSocket.OPEN
     if (socket.onopen) {
       socket.onopen({});
     }

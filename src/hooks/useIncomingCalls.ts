@@ -2,7 +2,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
-import { useCallWebSocket } from './useWebSocket';
+import { useWebSocket } from './useWebSocket';
 import { CallData } from '@/services/callService';
 
 export const useIncomingCalls = () => {
@@ -11,7 +11,7 @@ export const useIncomingCalls = () => {
   const authToken = localStorage.getItem('auth_token');
 
   // Connect to the incoming calls WebSocket
-  const { isConnected, send } = useCallWebSocket({
+  const { isConnected, send } = useWebSocket('wss://api.yourdomain.com/ws/calls/', {
     onMessage: handleIncomingCall,
     autoConnect: true,
     reconnect: true
